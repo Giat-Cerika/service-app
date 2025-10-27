@@ -1,12 +1,23 @@
 package response
 
-import "time"
+import (
+	"giat-cerika-service/internal/models"
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type AdminResponse struct {
-    ID        uint      `json:"id"`
-    Name      string    `json:"name"`
-    Email     string    `json:"email"`
-    Phone     string    `json:"phone"`
-    Role      string    `json:"role"`
-    CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID    `json:"id"`
+	Name      string       `json:"name"`
+	Username  string       `json:"username"`
+	Phone     string       `json:"phone"`
+	Role      RoleResponse `json:"role"`
+	CreatedAt time.Time    `json:"created_at"`
+}
+
+func ToAdminResponse(admin models.User) AdminResponse {
+	dataRole := ToRoleResponse(admin.Role)
+
+	return AdminResponse{ID: admin.ID, Name: admin.Name, Username: admin.Username, Role: dataRole}
 }

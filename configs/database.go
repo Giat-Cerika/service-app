@@ -18,8 +18,8 @@ func InitDB() *gorm.DB {
 
 	// Auto Migrate
 	db.AutoMigrate(
-		&models.Admin{},
-		&models.Student{},
+		&models.User{},
+		&models.Role{},
 	)
 
 	fmt.Println("Database connected successfully")
