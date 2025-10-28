@@ -1,32 +1,32 @@
 package configs
 
 import (
-	"fmt"
-	"giat-cerika-service/internal/models"
 	"log"
+	"os"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
+var DB *gorm.DB
+
 func InitDB() *gorm.DB {
-	dsn := GetConfig("DATABASE_URL")
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatal("Failed to connect database:", err)
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL environment variable is not set")
 	}
 
-	// Auto Migrate
-	db.AutoMigrate(
-		&models.User{},
-		&models.Role{},
-	)
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{
+		PrepareStmt: false,
+	})
+	if err != nil {
+		log.Fatalf("Gagal koneksi ke database: %v", err)
+	}
 
-	fmt.Println("Database connected successfully")
+	log.Println("✅ Successfully connected to database")
+	DB = db
 	return db
-}
-
-func CloseDB(db *gorm.DB) {
-	sqlDB, _ := db.DB()
-	sqlDB.Close()
 }

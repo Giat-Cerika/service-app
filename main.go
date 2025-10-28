@@ -2,35 +2,51 @@ package main
 
 import (
 	"giat-cerika-service/configs"
+	datasources "giat-cerika-service/internal/dataSources"
+	"giat-cerika-service/internal/middlewares"
+	"giat-cerika-service/pkg/workers/producer"
 	"giat-cerika-service/routes"
 	"log"
+	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	// Load .env
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+	configs.LoadEnv()
+
+	db := configs.InitDB()
+	rdb := configs.InitRedis()
+
+	configs.RunMigrations(db)
+
+	e := echo.New()
+	e.Use(middlewares.LoggerMiddleware)
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH},
+	}))
+
+	for _, r := range e.Routes() {
+		log.Printf("ROUTE %s %s", r.Method, r.Path)
 	}
 
-	// Initialize database
-	db := configs.InitDB()
-	defer configs.CloseDB(db)
+	cloudinarySvc, err := datasources.NewCloudinaryService()
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudinary service: %v", err)
+	}
 
-	// Initialize Echo
-	e := echo.New()
+	configs.InitRabbitMQ()
+	defer configs.CloseConnections()
 
-	// Middleware
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
+	go producer.StartWorker()
 
-	// Routes
-	routes.InitRoutes(e, db)
+	routes.Routes(e, db, rdb, &cloudinarySvc)
 
-	// Start server
-	e.Logger.Fatal(e.Start(":" + configs.GetConfig("PORT")))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(e.Start(":" + port))
 }

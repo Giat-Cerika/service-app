@@ -5,24 +5,34 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/labstack/echo/v4"
 )
 
-func GenerateToken(userID uint, role string) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(),
+type JWTClaims struct {
+	UserID string `json:"user_id"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+func GenerateToken(userID string, role string) (string, error) {
+	claims := JWTClaims{
+		UserID: userID,
+		Role:   role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(configs.GetJWTSecret()))
+}
+
+func GetExpiryFromToken(tokenStr string) (time.Time, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(t *jwt.Token) (any, error) {
+		return []byte(configs.GetJWTSecret()), nil
+	})
+
+	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+		return claims.ExpiresAt.Time, nil
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(configs.GetConfig("JWT_SECRET")))
-}
-
-func GetUserIDFromToken(c echo.Context) uint {
-	return c.Get("user_id").(uint)
-}
-
-func GetRoleFromToken(c echo.Context) string {
-	return c.Get("role").(string)
+	return time.Time{}, err
 }

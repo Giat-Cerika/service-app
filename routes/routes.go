@@ -1,37 +1,15 @@
 package routes
 
 import (
-	"giat-cerika-service/internal/handlers"
-	"giat-cerika-service/internal/repositories"
-	"giat-cerika-service/internal/services"
-	"giat-cerika-service/pkg/utils"
+	datasources "giat-cerika-service/internal/dataSources"
+	roleroute "giat-cerika-service/routes/role_route"
 
 	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
-func InitRoutes(e *echo.Echo, db *gorm.DB) {
-	// Validator
-	e.Validator = utils.NewValidator()
-
-	// Repositories
-	adminRepo := repositories.NewAdminRepository(db)
-	studentRepo := repositories.NewStudentRepository(db)
-
-	// Services
-	adminService := services.NewAdminService(adminRepo)
-	studentService := services.NewStudentService(studentRepo)
-
-	// Handlers
-	adminHandler := handlers.NewAdminHandler(adminService)
-	studentHandler := handlers.NewStudentHandler(studentService)
-
-	// API Group
-	api := e.Group("/api/v1")
-
-	// Admin Routes
-	InitAdminRoutes(api, adminHandler)
-
-	// Student Routes
-	InitStudentRoutes(api, studentHandler)
+func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasources.CloudinaryService) {
+	v1 := e.Group("/api/v1")
+	roleroute.RoleRoutes(v1.Group("/role"), db, rdb)
 }
