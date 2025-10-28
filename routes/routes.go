@@ -2,6 +2,7 @@ package routes
 
 import (
 	datasources "giat-cerika-service/internal/dataSources"
+	adminroute "giat-cerika-service/routes/admin_route"
 	roleroute "giat-cerika-service/routes/role_route"
 
 	"github.com/labstack/echo/v4"
@@ -12,4 +13,5 @@ import (
 func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasources.CloudinaryService) {
 	v1 := e.Group("/api/v1")
 	roleroute.RoleRoutes(v1.Group("/role"), db, rdb)
+	adminroute.AdminRoutes(v1.Group("/admin"), db, rdb, cldSvc)
 }

@@ -1,7 +1,16 @@
 package configs
 
-import "gorm.io/gorm"
+import (
+	"giat-cerika-service/internal/models"
+
+	"gorm.io/gorm"
+)
 
 func RunMigrations(db *gorm.DB) error {
-	return db.AutoMigrate()
+	return db.AutoMigrate(
+		&models.Role{},
+		&models.Class{},
+		&models.User{},
+		&models.Image{},
+	)
 }
