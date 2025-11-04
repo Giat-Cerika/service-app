@@ -3,6 +3,7 @@ package adminroute
 import (
 	datasources "giat-cerika-service/internal/dataSources"
 	adminhandler "giat-cerika-service/internal/handlers/admin_handler"
+	"giat-cerika-service/internal/middlewares"
 	adminrepo "giat-cerika-service/internal/repositories/admin_repo"
 	adminservice "giat-cerika-service/internal/services/admin_service"
 
@@ -17,4 +18,7 @@ func AdminRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasources
 	adminHandler := adminhandler.NewAdminHandler(adminService)
 
 	e.POST("/register", adminHandler.RegisterAdmin)
+	e.POST("/login", adminHandler.LoginAdmin)
+	e.GET("/me", adminHandler.GetProfileAdmin, middlewares.JWTMiddleware(rdb))
+	e.POST("/logout", adminHandler.LogoutAdmin, middlewares.JWTMiddleware(rdb))
 }

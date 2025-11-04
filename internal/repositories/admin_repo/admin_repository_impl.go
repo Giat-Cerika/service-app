@@ -24,7 +24,7 @@ func (a *AdminRepositoryImpl) Create(ctx context.Context, data *models.User) err
 // FindUsername implements IAdminRepository.
 func (a *AdminRepositoryImpl) FindUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
-	if err := a.db.WithContext(ctx).First(&user, "username = ?", username).Error; err != nil {
+	if err := a.db.WithContext(ctx).Preload("Role").First(&user, "username = ?", username).Error; err != nil {
 		return nil, err
 	}
 
@@ -48,4 +48,14 @@ func (a *AdminRepositoryImpl) UpdatePhotoAdmin(ctx context.Context, adminID uuid
 		Where("id = ?", adminID).
 		Where("role_id IN (?)", subQuery).
 		Update("photo", photo).Error
+}
+
+// FindByAdminID implements IAdminRepository.
+func (a *AdminRepositoryImpl) FindByAdminID(ctx context.Context, adminID uuid.UUID) (*models.User, error) {
+	var user models.User
+	if err := a.db.WithContext(ctx).Preload("Role").First(&user, "id = ?", adminID).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }

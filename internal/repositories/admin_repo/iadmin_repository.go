@@ -12,4 +12,6 @@ type IAdminRepository interface {
 	FindUsername(ctx context.Context, username string) (*models.User, error)
 	FindRoleAdmin(ctx context.Context) (*models.Role, error)
 	UpdatePhotoAdmin(ctx context.Context, adminID uuid.UUID, photo string) error
+
+	FindByAdminID(ctx context.Context, adminID uuid.UUID) (*models.User, error)
 }

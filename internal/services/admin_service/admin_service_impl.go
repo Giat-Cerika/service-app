@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"giat-cerika-service/configs"
 	datasources "giat-cerika-service/internal/dataSources"
 	adminrequest "giat-cerika-service/internal/dto/request/admin_request"
 	"giat-cerika-service/internal/models"
@@ -15,6 +16,7 @@ import (
 	"io"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -96,6 +98,87 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req adminrequest.Regist
 
 			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileAdminQueueName, pay)
 		}
+	}
+
+	return nil
+}
+
+// Login implements IAdminService.
+func (a *AdminServiceImpl) Login(ctx context.Context, req adminrequest.LoginAdminRequest) (string, error) {
+	admin, err := a.adminRepo.FindUsername(ctx, req.Username)
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrBadRequest, "invalid credentials", 400)
+	}
+
+	isPassword := utils.CheckPasswordHash(req.Password, admin.Password)
+	if !isPassword {
+		return "", errorresponse.NewCustomError(errorresponse.ErrBadRequest, "password incorrect", 400)
+	}
+
+	token, err := utils.GenerateToken(admin.ID.String(), admin.Role.Name)
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to generate token", 500)
+	}
+
+	expiry, err := utils.GetExpiryFromToken(token)
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get expiry token", 500)
+	}
+
+	redisKey := fmt.Sprintf("admin_token:%s", admin.ID)
+	err = configs.SetRedis(ctx, redisKey, token, time.Until(expiry))
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to store token in cache", 400)
+	}
+
+	return token, nil
+}
+
+// GetProfile implements IAdminService.
+func (a *AdminServiceImpl) GetProfile(ctx context.Context, adminId uuid.UUID, token string) (*models.User, error) {
+	cacheKey := fmt.Sprintf("admin_token:%s", adminId)
+	storedToken, err := configs.GetRedis(ctx, cacheKey)
+	if err != nil || storedToken != token {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrForbidden, "invalid or expired session", 401)
+	}
+
+	admin, err := a.adminRepo.FindByAdminID(ctx, adminId)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "admin not found", 404)
+	}
+
+	return admin, nil
+}
+
+// CheckTokenBlacklisted implements IAdminService.
+func (a *AdminServiceImpl) CheckTokenBlacklisted(ctx context.Context, token string) (bool, error) {
+	blackListeed := fmt.Sprintf("blacklistToken_admin:%s", token)
+	val, err := configs.GetRedis(ctx, blackListeed)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return false, nil
+		}
+		return false, errorresponse.NewCustomError(errorresponse.ErrNotFound, "blacklisted token not found", 404)
+	}
+	return val == "blacklister", nil
+}
+
+// Logout implements IAdminService.
+func (a *AdminServiceImpl) Logout(ctx context.Context, adminID uuid.UUID, token string) error {
+	expiry, err := utils.GetExpiryFromToken(token)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get expiry token", 500)
+	}
+
+	blackListKey := fmt.Sprintf("blacklistToken_admin:%s", token)
+	err = configs.SetRedis(ctx, blackListKey, "blacklisted", time.Until(expiry))
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to blacklist token", 500)
+	}
+	cacheKey := fmt.Sprintf("admin_token:%s", adminID)
+	err = configs.DeleteRedis(ctx, cacheKey)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete token", 500)
 	}
 
 	return nil
