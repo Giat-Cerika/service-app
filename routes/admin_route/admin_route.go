@@ -19,6 +19,8 @@ func AdminRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasources
 
 	e.POST("/register", adminHandler.RegisterAdmin)
 	e.POST("/login", adminHandler.LoginAdmin)
-	e.GET("/me", adminHandler.GetProfileAdmin, middlewares.JWTMiddleware(rdb))
-	e.POST("/logout", adminHandler.LogoutAdmin, middlewares.JWTMiddleware(rdb))
+
+	adminGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware("admin"))
+	adminGroup.GET("/me", adminHandler.GetProfileAdmin)
+	adminGroup.POST("/logout", adminHandler.LogoutAdmin)
 }

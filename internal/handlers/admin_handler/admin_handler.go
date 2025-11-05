@@ -6,10 +6,10 @@ import (
 	adminservice "giat-cerika-service/internal/services/admin_service"
 	errorresponse "giat-cerika-service/pkg/constant/error_response"
 	"giat-cerika-service/pkg/constant/response"
+	"giat-cerika-service/pkg/utils"
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -63,18 +63,12 @@ func (a *AdminHandler) LoginAdmin(c echo.Context) error {
 }
 
 func (a *AdminHandler) GetProfileAdmin(c echo.Context) error {
-	adminToken := c.Get("user")
-	if adminToken == nil {
-		return response.Error(c, http.StatusUnauthorized, "Unauthorized: token invalid or expired", nil)
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 	}
 
-	admin, ok := adminToken.(*jwt.Token)
-	if !ok {
-		return response.Error(c, http.StatusUnauthorized, "Unauthorized: token invalid or expired", nil)
-	}
-
-	claims := admin.Claims.(jwt.MapClaims)
-	adminID := claims["user_id"].(string)
+	adminID := claims.UserID
 	authHeader := c.Request().Header.Get("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 
@@ -91,18 +85,12 @@ func (a *AdminHandler) GetProfileAdmin(c echo.Context) error {
 }
 
 func (a *AdminHandler) LogoutAdmin(c echo.Context) error {
-	adminToken := c.Get("user")
-	if adminToken == nil {
-		return response.Error(c, http.StatusUnauthorized, "Unauthorized: token invalid or expired", nil)
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 	}
 
-	admin, ok := adminToken.(*jwt.Token)
-	if !ok {
-		return response.Error(c, http.StatusUnauthorized, "Unauthorized: token invalid or expired", nil)
-	}
-
-	claims := admin.Claims.(jwt.MapClaims)
-	adminID := claims["user_id"].(string)
+	adminID := claims.UserID
 	authHeader := c.Request().Header.Get("Authorization")
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 
@@ -114,18 +102,18 @@ func (a *AdminHandler) LogoutAdmin(c echo.Context) error {
 		return response.Error(c, http.StatusInternalServerError, err.Error(), "invalid to get blacklisted")
 	}
 	if blackList {
-		return response.Error(c, http.StatusUnauthorized, "Your'e logged out", nil)
+		return response.Error(c, http.StatusUnauthorized, "You're logged out", nil)
 	}
 
-	if token != "" {
-		if err := a.adminService.Logout(c.Request().Context(), uuid.MustParse(adminID), token); err != nil {
-			if customErr, ok := errorresponse.AsCustomErr(err); ok {
-				return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
-			}
-			return response.Error(c, http.StatusInternalServerError, err.Error(), "invalid to blacklist token")
+	if token == "" {
+		return response.Error(c, http.StatusUnauthorized, "Token is empty", nil)
+	}
+
+	if err := a.adminService.Logout(c.Request().Context(), uuid.MustParse(adminID), token); err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
 		}
-	} else {
-		return response.Error(c, http.StatusUnauthorized, "Token Is empty", nil)
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "invalid to blacklist token")
 	}
 
 	return response.Success(c, http.StatusOK, "Logout Successfully", nil)

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"giat-cerika-service/configs"
+	"giat-cerika-service/pkg/utils"
 	"net/http"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v5"
 	jwtmiddleware "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -16,6 +18,10 @@ func JWTMiddleware(rdb *redis.Client) echo.MiddlewareFunc {
 	return jwtmiddleware.WithConfig(jwtmiddleware.Config{
 		SigningKey: []byte(configs.GetJWTSecret()),
 		ContextKey: "user",
+
+		NewClaimsFunc: func(c echo.Context) jwt.Claims {
+			return new(utils.JWTClaims)
+		},
 
 		Skipper: func(c echo.Context) bool {
 			token := c.Request().Header.Get("Authorization")
