@@ -5,6 +5,7 @@ import (
 	adminroute "giat-cerika-service/routes/admin_route"
 	classroute "giat-cerika-service/routes/class_route"
 	roleroute "giat-cerika-service/routes/role_route"
+	studentroute "giat-cerika-service/routes/student_route"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -16,4 +17,5 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasources.Cl
 	roleroute.RoleRoutes(v1.Group("/role"), db, rdb)
 	adminroute.AdminRoutes(v1.Group("/admin"), db, rdb, cldSvc)
 	classroute.ClassRoutes(v1.Group("/class"), db, rdb)
+	studentroute.StudentRoutes(v1.Group("/student"), db, rdb, cldSvc)
 }

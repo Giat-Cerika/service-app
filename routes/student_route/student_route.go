@@ -1,0 +1,22 @@
+package studentroute
+
+import (
+	datasources "giat-cerika-service/internal/dataSources"
+	studenthandler "giat-cerika-service/internal/handlers/student_handler"
+	classrepo "giat-cerika-service/internal/repositories/class_repo"
+	studentrepo "giat-cerika-service/internal/repositories/student_repo"
+	studentservice "giat-cerika-service/internal/services/student_service"
+
+	"github.com/labstack/echo/v4"
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+)
+
+func StudentRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasources.CloudinaryService) {
+	studentRepo := studentrepo.NewStudentRepositoryImpl(db)
+	classRepo := classrepo.NewClassRepositoryImpl(db)
+	studentService := studentservice.NewStudentServiceImpl(studentRepo, classRepo, rdb, *cld)
+	studentHandler := studenthandler.NewStudentHandler(studentService)
+
+	e.POST("/register", studentHandler.RegisterStudent)
+}

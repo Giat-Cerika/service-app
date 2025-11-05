@@ -13,7 +13,7 @@ type User struct {
 	Password    string     `gorm:"type:varchar(255)" json:"password"`
 	Nisn        *string    `gorm:"type:varchar(255);index" json:"nisn"`
 	DateOfBirth *time.Time `gorm:"type:date;" json:"date_of_birth"`
-	Age         *time.Time `gorm:"type:int;" json:"age"`
+	Age         int        `gorm:"type:int;" json:"age"`
 	Photo       string     `gorm:"type:varchar(255);index" json:"photo"`
 	RoleID      uuid.UUID  `gorm:"type:uuid"`
 	ClassID     *uuid.UUID `gorm:"type:uuid"`
