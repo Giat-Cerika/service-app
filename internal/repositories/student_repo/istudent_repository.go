@@ -15,4 +15,5 @@ type IStudentRepository interface {
 	UpdatePhotoStudent(ctx context.Context, studentId uuid.UUID, photo string) error
 
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
+	FindByStudentID(ctx context.Context, studentID uuid.UUID) (*models.User, error)
 }

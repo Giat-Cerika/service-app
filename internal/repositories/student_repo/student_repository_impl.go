@@ -69,3 +69,13 @@ func (s *StudentRepositoryImpl) FindByUsername(ctx context.Context, username str
 
 	return &student, nil
 }
+
+// FindByStudentID implements IStudentRepository.
+func (s *StudentRepositoryImpl) FindByStudentID(ctx context.Context, studentID uuid.UUID) (*models.User, error) {
+	var student models.User
+	if err := s.db.WithContext(ctx).Preload("Role").Preload("Class").First(&student, "id = ?", studentID).Error; err != nil {
+		return nil, err
+	}
+
+	return &student, nil
+}

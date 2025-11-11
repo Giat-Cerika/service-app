@@ -3,6 +3,7 @@ package studentroute
 import (
 	datasources "giat-cerika-service/internal/dataSources"
 	studenthandler "giat-cerika-service/internal/handlers/student_handler"
+	"giat-cerika-service/internal/middlewares"
 	classrepo "giat-cerika-service/internal/repositories/class_repo"
 	studentrepo "giat-cerika-service/internal/repositories/student_repo"
 	studentservice "giat-cerika-service/internal/services/student_service"
@@ -19,4 +20,9 @@ func StudentRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 	studentHandler := studenthandler.NewStudentHandler(studentService)
 
 	e.POST("/register", studentHandler.RegisterStudent)
+	e.POST("/login", studentHandler.LoginStudent)
+
+	studentGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware("student"))
+	studentGroup.GET("/me", studentHandler.GetProfileStudent, middlewares.JWTMiddleware(rdb))
+	studentGroup.POST("/logout", studentHandler.Logout, middlewares.JWTMiddleware(rdb))
 }

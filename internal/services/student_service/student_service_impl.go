@@ -174,3 +174,46 @@ func (s *StudentServiceImpl) Login(ctx context.Context, req studentrequest.Login
 
 	return token, nil
 }
+
+// GetProfile implements IStudentService.
+func (s *StudentServiceImpl) GetProfile(ctx context.Context, studentId uuid.UUID, token string) (*models.User, error) {
+	cacheKey := fmt.Sprintf("student_token:%s", studentId)
+	storedToken, err := configs.GetRedis(ctx, cacheKey)
+	if err != nil || storedToken != token {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "unauthorized access", 401)
+	}
+
+	student, err := s.studenRepo.FindByStudentID(ctx, studentId)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
+	}
+
+	return student, nil
+}
+
+// CheckTokenBlacklisted implements IStudentService.
+func (s *StudentServiceImpl) CheckTokenBlacklisted(ctx context.Context, token string) (bool, error) {
+	blackListeed := fmt.Sprintf("blacklistToken_student:%s", token)
+	val, err := configs.GetRedis(ctx, blackListeed)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return false, nil
+		}
+		return false, errorresponse.NewCustomError(errorresponse.ErrNotFound, "blacklisted token not found", 404)
+	}
+	return val == "blacklister", nil
+}
+
+// Logoutctx implements IStudentService.
+func (s *StudentServiceImpl) Logout(ctx context.Context, studentID uuid.UUID, token string) error {
+	expiry, err := utils.GetExpiryFromToken(token)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get expiry token", 500)
+	}
+	blacklistedKey := fmt.Sprintf("blacklistToken_student:%s", token)
+	err = configs.SetRedis(ctx, blacklistedKey, "blacklister", time.Until(expiry))
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to store blacklisted token in cache", 500)
+	}
+	return nil
+}
