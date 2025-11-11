@@ -59,3 +59,13 @@ func (s *StudentRepositoryImpl) UpdatePhotoStudent(ctx context.Context, studentI
 		Where("role_id IN (?)", subQuery).
 		Update("photo", photo).Error
 }
+
+// FindByUsername implements IStudentRepository.
+func (s *StudentRepositoryImpl) FindByUsername(ctx context.Context, username string) (*models.User, error) {
+	var student models.User
+	if err := s.db.WithContext(ctx).Preload("Role").Preload("Class").First(&student, "username = ?", username).Error; err != nil {
+		return nil, err
+	}
+
+	return &student, nil
+}

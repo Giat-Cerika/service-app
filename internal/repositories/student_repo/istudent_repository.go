@@ -13,4 +13,6 @@ type IStudentRepository interface {
 	FindNisnUnique(ctx context.Context, nisn string) (string, error)
 	FindRoleStudent(ctx context.Context) (*models.Role, error)
 	UpdatePhotoStudent(ctx context.Context, studentId uuid.UUID, photo string) error
+
+	FindByUsername(ctx context.Context, username string) (*models.User, error)
 }

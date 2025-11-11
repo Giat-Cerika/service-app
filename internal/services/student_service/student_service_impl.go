@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"giat-cerika-service/configs"
 	datasources "giat-cerika-service/internal/dataSources"
 	studentrequest "giat-cerika-service/internal/dto/request/student_request"
 	"giat-cerika-service/internal/models"
@@ -16,6 +17,7 @@ import (
 	"io"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -141,4 +143,34 @@ func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.Re
 	}
 
 	return nil
+}
+
+// Login implements IStudentService.
+func (s *StudentServiceImpl) Login(ctx context.Context, req studentrequest.LoginStudentRequet) (string, error) {
+	student, err := s.studenRepo.FindByUsername(ctx, req.Username)
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrBadRequest, "invalid credential", 400)
+	}
+
+	isPassword := utils.CheckPasswordHash(req.Password, student.Password)
+	if !isPassword {
+		return "", errorresponse.NewCustomError(errorresponse.ErrBadRequest, "password incorrect", 400)
+	}
+
+	token, err := utils.GenerateToken(student.ID.String(), student.Role.Name)
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to generate token", 500)
+	}
+
+	expiry, err := utils.GetExpiryFromToken(token)
+	if err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get expiry token", 500)
+	}
+
+	redisKey := fmt.Sprintf("student_token:%s", student.ID)
+	if err := configs.SetRedis(ctx, redisKey, token, time.Until(expiry)); err != nil {
+		return "", errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to store token in cache", 400)
+	}
+
+	return token, nil
 }

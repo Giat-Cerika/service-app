@@ -7,4 +7,5 @@ import (
 
 type IStudentService interface {
 	Register(ctx context.Context, req studentrequest.RegisterStudentRequest) error
+	Login(ctx context.Context, req studentrequest.LoginStudentRequet) (string, error)
 }
