@@ -3,6 +3,7 @@ package studentrepo
 import (
 	"context"
 	"giat-cerika-service/internal/models"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,4 +17,5 @@ type IStudentRepository interface {
 
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
 	FindByStudentID(ctx context.Context, studentID uuid.UUID) (*models.User, error)
+	CheckNisnAndDateOfBirth(ctx context.Context, nisn string, dateOfBirth time.Time) (*models.User, error)
 }

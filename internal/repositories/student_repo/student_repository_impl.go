@@ -3,6 +3,7 @@ package studentrepo
 import (
 	"context"
 	"giat-cerika-service/internal/models"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -74,6 +75,16 @@ func (s *StudentRepositoryImpl) FindByUsername(ctx context.Context, username str
 func (s *StudentRepositoryImpl) FindByStudentID(ctx context.Context, studentID uuid.UUID) (*models.User, error) {
 	var student models.User
 	if err := s.db.WithContext(ctx).Preload("Role").Preload("Class").First(&student, "id = ?", studentID).Error; err != nil {
+		return nil, err
+	}
+
+	return &student, nil
+}
+
+// CheckNisnAndDateOfBirth implements IStudentRepository.
+func (s *StudentRepositoryImpl) CheckNisnAndDateOfBirth(ctx context.Context, nisn string, dateOfBirth time.Time) (*models.User, error) {
+	var student models.User
+	if err := s.db.WithContext(ctx).Preload("Role").Preload("Class").First(&student, "nisn = ? AND date_of_birth = ?", nisn, dateOfBirth).Error; err != nil {
 		return nil, err
 	}
 

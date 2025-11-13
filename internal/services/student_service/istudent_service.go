@@ -14,4 +14,5 @@ type IStudentService interface {
 	GetProfile(ctx context.Context, studentId uuid.UUID, token string) (*models.User, error)
 	Logout(ctx context.Context, studentID uuid.UUID, token string) error
 	CheckTokenBlacklisted(ctx context.Context, token string) (bool, error)
+	CheckNisnAndDateOfBirth(ctx context.Context, req studentrequest.CheckNisnAndDateOfBirth) (*models.User, error)
 }

@@ -139,3 +139,26 @@ func (s *StudentHandler) Logout(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Logout Success", nil)
 }
+
+func (s *StudentHandler) CheckNisnAndDateOfBirthStudent(c echo.Context) error {
+	var req studentrequest.CheckNisnAndDateOfBirth
+	req.Nisn = c.FormValue("nisn")
+	if dateStr := c.FormValue("date_of_birth"); dateStr != "" {
+		dateOfBirth, err := time.Parse("02-01-2006", dateStr)
+		if err != nil {
+			return response.Error(c, http.StatusBadRequest, "invalid date of birth format", err.Error())
+		}
+
+		req.DateOfBirth = dateOfBirth
+	}
+
+	student, err := s.studentService.CheckNisnAndDateOfBirth(c.Request().Context(), req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to check nisn and date of birth")
+	}
+	studentResponse := studentresponse.ToStudentResponse(*student)
+	return response.Success(c, http.StatusOK, "Check Nisn and Date of Birth Successfully", studentResponse)
+}

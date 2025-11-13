@@ -23,3 +23,8 @@ type LoginStudentRequet struct {
 	Username string `form:"username" json:"username"`
 	Password string `form:"password" json:"password"`
 }
+
+type CheckNisnAndDateOfBirth struct {
+	Nisn        string    `form:"nisn" json:"nisn"`
+	DateOfBirth time.Time `form:"date_of_birth" json:"date_of_birth"`
+}

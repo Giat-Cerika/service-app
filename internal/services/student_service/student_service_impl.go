@@ -2,6 +2,7 @@ package studentservice
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"giat-cerika-service/configs"
@@ -216,4 +217,35 @@ func (s *StudentServiceImpl) Logout(ctx context.Context, studentID uuid.UUID, to
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to store blacklisted token in cache", 500)
 	}
 	return nil
+}
+
+// CheckNisnAndDateOfBirth implements IStudentService.
+func (s *StudentServiceImpl) CheckNisnAndDateOfBirth(ctx context.Context, req studentrequest.CheckNisnAndDateOfBirth) (*models.User, error) {
+	if strings.TrimSpace(req.Nisn) == "" {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Nisn is required", 400)
+	}
+	if req.DateOfBirth.IsZero() {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Date Of Birth is required", 400)
+	}
+	student, err := s.studenRepo.CheckNisnAndDateOfBirth(ctx, req.Nisn, req.DateOfBirth)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "student not found", 404)
+		}
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
+	}
+	if student == nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "student is empty", 404)
+	}
+
+	redisKey := fmt.Sprintf("id_forgot_password:%s", student.ID)
+	data, _ := json.Marshal(map[string]any{
+		"student_id":    student.ID,
+		"name":          student.Name,
+		"nisn":          req.Nisn,
+		"date_of_birth": req.DateOfBirth,
+	})
+	_ = configs.SetRedis(ctx, redisKey, data, time.Minute*5)
+
+	return student, nil
 }
