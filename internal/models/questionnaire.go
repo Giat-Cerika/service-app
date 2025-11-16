@@ -13,7 +13,7 @@ type Questionnaire struct {
 	Amount      int       `gorm:"type:int" json:"amount"`
 	Code        int       `gorm:"type:int" json:"code"`
 	Status      int       `grom:"type:int" json:"status"`
-	// Type enum
+	Type        string    `gorm:"type:questionnaire_type" json:"type"`
 	Duration    string    `gorm:"type:varchar(100)" json:"duration"`
 	CreatedBy   uuid.UUID `gorm:"type:uuid"`
 	User        User      `gorm:"foreignKey:CreatedBy"`

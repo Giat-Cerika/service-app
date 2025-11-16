@@ -1,0 +1,117 @@
+package videohandler
+
+import (
+	videorequest "giat-cerika-service/internal/dto/request/video_request"
+	videoresponse "giat-cerika-service/internal/dto/response/video_response"
+	videoservice "giat-cerika-service/internal/services/video_service"
+	errorresponse "giat-cerika-service/pkg/constant/error_response"
+	"giat-cerika-service/pkg/constant/response"
+	"giat-cerika-service/pkg/utils"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+)
+
+type VideoHandler struct {
+	videoService videoservice.IVideoService
+}
+
+func NewVideoHandler(service videoservice.IVideoService) *VideoHandler {
+	return &VideoHandler{videoService: service}
+}
+
+func (ch *VideoHandler) CreateVideo(c echo.Context) error {
+	var req videorequest.CreateVideoRequest
+	if err := c.Bind(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	err := ch.videoService.CreateVideo(c.Request().Context(), req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to create video")
+	}
+
+	return response.Success(c, http.StatusOK, "Video Created Succssfully", nil)
+}
+
+func (ch *VideoHandler) GetAllVideo(c echo.Context) error {
+	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
+	search := c.QueryParam("search")
+
+	videoes, total, err := ch.videoService.GetAllVideo(c.Request().Context(), pageInt, limitInt, search)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get videoes")
+	}
+
+	meta := utils.BuildPaginationMeta(c, pageInt, limitInt, total)
+	data := make([]videoresponse.VideoResponse, len(videoes))
+	for i, video := range videoes {
+		data[i] = videoresponse.ToVideoResponse(*video)
+	}
+
+	return response.PaginatedSuccess(c, http.StatusOK, "Get All Videoes Successfully", data, meta)
+}
+
+func (ch *VideoHandler) GetByIdVideo(c echo.Context) error {
+	videoId, err := uuid.Parse(c.Param("videoId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	video, err := ch.videoService.GetByIdVideo(c.Request().Context(), videoId)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get video")
+	}
+
+	res := videoresponse.ToVideoResponse(*video)
+
+	return response.Success(c, http.StatusOK, "Get Video Successfully", res)
+}
+
+func (ch *VideoHandler) UpdateVideo(c echo.Context) error {
+	videoId, err := uuid.Parse(c.Param("videoId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	var req videorequest.UpdateVideoRequest
+	if err := c.Bind(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	err = ch.videoService.UpdateVideo(c.Request().Context(), videoId, req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to update video")
+	}
+
+	return response.Success(c, http.StatusOK, "Video Updated Successfully", nil)
+}
+
+func (ch *VideoHandler) DeleteVideo(c echo.Context) error {
+	videoId, err := uuid.Parse(c.Param("videoId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	if err := ch.videoService.DeleteVideo(c.Request().Context(), videoId); err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to delete video")
+	}
+
+	return response.Success(c, http.StatusOK, "Video Deleted Successfully", nil)
+}
