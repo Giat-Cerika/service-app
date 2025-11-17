@@ -187,3 +187,27 @@ func (c *ClassServiceImpl) DeleteClass(ctx context.Context, classId uuid.UUID) e
 
 	return nil
 }
+
+// GetAllPublic implements IClassService.
+func (c *ClassServiceImpl) GetAllPublic(ctx context.Context) ([]*models.Class, error) {
+	cacheKey := fmt.Sprintln("classes:public")
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var classes []*models.Class
+		if json.Unmarshal([]byte(cached), &classes) == nil {
+			return classes, nil
+		}
+	}
+
+	items, err := c.classRepo.GetAllPublic(ctx)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get class", 500)
+	}
+
+	if len(items) == 0 {
+		items = []*models.Class{}
+	}
+
+	buf, _ := json.Marshal(items)
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*60)
+	return items, nil
+}

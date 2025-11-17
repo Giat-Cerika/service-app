@@ -14,4 +14,6 @@ type IClassService interface {
 	GetByIdClass(ctx context.Context, classId uuid.UUID) (*models.Class, error)
 	UpdateClass(ctx context.Context, classId uuid.UUID, req classrequest.UpdateClassRequest) error
 	DeleteClass(ctx context.Context, classId uuid.UUID) error
+
+	GetAllPublic(ctx context.Context) ([]*models.Class, error)
 }

@@ -14,4 +14,6 @@ type IClassRepository interface {
 	FindById(ctx context.Context, classId uuid.UUID) (*models.Class, error)
 	Update(ctx context.Context, classId uuid.UUID, data *models.Class) error
 	Delete(ctx context.Context, classId uuid.UUID) error
+
+	GetAllPublic(ctx context.Context) ([]*models.Class, error)
 }

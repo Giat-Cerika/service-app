@@ -71,3 +71,12 @@ func (c *ClassRepositoryImpl) Update(ctx context.Context, classId uuid.UUID, dat
 func (c *ClassRepositoryImpl) Delete(ctx context.Context, classId uuid.UUID) error {
 	return c.db.WithContext(ctx).Delete(&models.Class{}, "id = ?", classId).Error
 }
+
+// GetAllPublic implements IClassRepository.
+func (c *ClassRepositoryImpl) GetAllPublic(ctx context.Context) ([]*models.Class, error) {
+	var classes []*models.Class
+	if err := c.db.WithContext(ctx).Find(&classes).Error; err != nil {
+		return nil, err
+	}
+	return classes, nil
+}

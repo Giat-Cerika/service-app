@@ -3,7 +3,6 @@ package main
 import (
 	"giat-cerika-service/configs"
 	datasources "giat-cerika-service/internal/dataSources"
-	"giat-cerika-service/internal/middlewares"
 	"giat-cerika-service/pkg/workers/producer"
 	"giat-cerika-service/routes"
 	"log"
@@ -22,7 +21,7 @@ func main() {
 	configs.RunMigrations(db)
 
 	e := echo.New()
-	e.Use(middlewares.LoggerMiddleware)
+	// e.Use(middlewares.LoggerMiddleware)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH},

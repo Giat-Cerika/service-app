@@ -17,6 +17,8 @@ func ClassRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	classService := classservice.NewClassServiceImpl(classRepo, rdb)
 	classHandler := classhandler.NewClassHandler(classService)
 
+	e.GET("/all/public", classHandler.GetAllPublic)
+
 	classGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))
 	classGroup.POST("/create", classHandler.CreateClass)
 	classGroup.GET("/all", classHandler.GetAllClass)

@@ -115,3 +115,19 @@ func (ch *ClassHandler) DeleteClass(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Class Deleted Successfully", nil)
 }
+
+func (ch *ClassHandler) GetAllPublic(c echo.Context) error {
+	classes, err := ch.classService.GetAllPublic(c.Request().Context())
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get public classes")
+	}
+
+	data := make([]classresponse.ClassResponse, len(classes))
+	for i, class := range classes {
+		data[i] = classresponse.ToClassResponse(*class)
+	}
+	return response.Success(c, http.StatusOK, "Get All Public Classes Successfully", data)
+}
