@@ -11,7 +11,7 @@ type Questionnaire struct {
 	Title       string    `gorm:"type:varchar(255);index" json:"title"`
 	Description string    `gorm:"type:text" json:"description"`
 	Amount      int       `gorm:"type:int" json:"amount"`
-	Code        int       `gorm:"type:int" json:"code"`
+	Code        string    `gorm:"type:string" json:"code"`
 	Status      int       `grom:"type:int" json:"status"`
 	Type        string    `gorm:"type:questionnaire_type" json:"type"`
 	Duration    string    `gorm:"type:varchar(100)" json:"duration"`

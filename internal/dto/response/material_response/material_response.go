@@ -8,19 +8,25 @@ import (
 )
 
 type MaterialResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	CreatedAt   string    `json:"created_at"`
-	UpdatedAt   string    `json:"updated_at"`
+	ID             uuid.UUID `json:"id"`
+	Title          string    `json:"title"`
+	Description    string    `json:"description"`
+	MaterialImages []string  `json:"material_images"`
+	CreatedAt      string    `json:"created_at"`
+	UpdatedAt      string    `json:"updated_at"`
 }
 
-func ToMaterialResponse(class models.Materials) MaterialResponse {
+func ToMaterialResponse(material models.Materials) MaterialResponse {
+	materialImages := []string{}
+	for _, materialImage := range material.MaterialImages {
+		materialImages = append(materialImages, materialImage.Image.ImagePath)
+	}
 	return MaterialResponse{
-		ID:          class.ID,
-		Title:       class.Title,
-		Description: class.Description,
-		CreatedAt:   utils.FormatDate(class.CreatedAt),
-		UpdatedAt:   utils.FormatDate(class.UpdatedAt),
+		ID:             material.ID,
+		Title:          material.Title,
+		Description:    material.Description,
+		MaterialImages: materialImages,
+		CreatedAt:      utils.FormatDate(material.CreatedAt),
+		UpdatedAt:      utils.FormatDate(material.UpdatedAt),
 	}
 }

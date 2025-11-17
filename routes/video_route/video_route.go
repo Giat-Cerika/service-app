@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func VideoRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
+func VideoRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	videoRepo := videorepo.NewVideoRepositoryImpl(db)
 	videoService := videoservice.NewVideoServiceImpl(videoRepo, rdb)
 	videoHandler := videohandler.NewVideoHandler(videoService)

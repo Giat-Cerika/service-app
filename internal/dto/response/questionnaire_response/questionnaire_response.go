@@ -12,7 +12,7 @@ type QuestionnaireResponse struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Amount      int       `json:"amount"`
-	Code        int       `json:"code"`
+	Code        string    `json:"code"`
 	Status      int       `json:"status"`
 	Type        string    `json:"type"`
 	Duration    string    `json:"duration"`

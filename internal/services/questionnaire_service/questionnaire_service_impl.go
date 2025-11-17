@@ -61,9 +61,8 @@ func (c *QuestionnaireServiceImpl) CreateQuestionnaire(ctx context.Context, req 
 	if err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Amount must be a valid number", 400)
 	}
-	code, err := strconv.Atoi(req.Code)
-	if err != nil {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Code must be a valid number", 400)
+	if strings.TrimSpace(req.Code) == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Code is required", 400)
 	}
 	status, err := strconv.Atoi(req.Status)
 	if err != nil {
@@ -81,7 +80,7 @@ func (c *QuestionnaireServiceImpl) CreateQuestionnaire(ctx context.Context, req 
 		Title:       req.Title,
 		Description: req.Description,
 		Amount:      amount,
-		Code:        code,
+		Code:        req.Code,
 		Status:      status,
 		Type:        req.Type,
 		Duration:    req.Duration,
@@ -180,9 +179,7 @@ func (c *QuestionnaireServiceImpl) UpdateQuestionnaire(ctx context.Context, ques
 		}
 	}
 	if req.Code != "" {
-		if code, err := strconv.Atoi(req.Code); err == nil {
-			questionnaire.Code = code
-		}
+		questionnaire.Code = req.Code
 	}
 	if req.Status != "" {
 		if status, err := strconv.Atoi(req.Status); err == nil {
