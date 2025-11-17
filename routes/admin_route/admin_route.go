@@ -17,12 +17,10 @@ func AdminRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasources
 	adminService := adminservice.NewAdminServiceImpl(adminRepo, rdb, *cld)
 	adminHandler := adminhandler.NewAdminHandler(adminService)
 
-	// 1. Definisikan grup untuk PUBLIC ROUTES (tidak perlu middleware)
 	publicGroup := e.Group("")
 	publicGroup.POST("/register", adminHandler.RegisterAdmin)
 	publicGroup.POST("/login", adminHandler.LoginAdmin)
 
-	// 2. Definisikan grup untuk PROTECTED ROUTES (memerlukan middleware JWT dan Role)
 	protectedGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware("admin"))
 	protectedGroup.GET("/me", adminHandler.GetProfileAdmin)
 	protectedGroup.POST("/logout", adminHandler.LogoutAdmin)
