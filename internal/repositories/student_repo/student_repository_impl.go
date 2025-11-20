@@ -90,3 +90,12 @@ func (s *StudentRepositoryImpl) CheckNisnAndDateOfBirth(ctx context.Context, nis
 
 	return &student, nil
 }
+
+// UpdateNewPassword implements IStudentRepository.
+func (s *StudentRepositoryImpl) UpdateNewPassword(ctx context.Context, studentID uuid.UUID, password string) error {
+	if err := s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", studentID).Update("password", password).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

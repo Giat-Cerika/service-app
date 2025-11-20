@@ -28,3 +28,9 @@ type CheckNisnAndDateOfBirth struct {
 	Nisn        string    `form:"nisn" json:"nisn"`
 	DateOfBirth time.Time `form:"date_of_birth" json:"date_of_birth"`
 }
+
+type UpdatePassword struct {
+	StudentID       uuid.UUID `form:"student_id" json:"student_id"`
+	NewPassword     string    `form:"new_password" json:"new_password"`
+	ConfirmPassword string    `form:"confirm_password" json:"confirm_password"`
+}

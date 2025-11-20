@@ -22,6 +22,7 @@ func StudentRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 	e.POST("/register", studentHandler.RegisterStudent)
 	e.POST("/login", studentHandler.LoginStudent)
 	e.POST("/check-nisn-and-dateofbirth", studentHandler.CheckNisnAndDateOfBirthStudent)
+	e.PUT("/update-new-password", studentHandler.UpdateNewPasswordStudent)
 
 	studentGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware("student"))
 	studentGroup.GET("/me", studentHandler.GetProfileStudent, middlewares.JWTMiddleware(rdb))

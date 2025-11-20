@@ -162,3 +162,20 @@ func (s *StudentHandler) CheckNisnAndDateOfBirthStudent(c echo.Context) error {
 	studentResponse := studentresponse.ToStudentResponse(*student)
 	return response.Success(c, http.StatusOK, "Check Nisn and Date of Birth Successfully", studentResponse)
 }
+
+func (s *StudentHandler) UpdateNewPasswordStudent(c echo.Context) error {
+	var req studentrequest.UpdatePassword
+	if err := c.Bind(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	err := s.studentService.UpdateNewPasswordStudent(c.Request().Context(), req.StudentID, req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to update password")
+	}
+
+	return response.Success(c, http.StatusOK, "Password updated successfully", nil)
+}

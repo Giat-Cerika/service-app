@@ -18,4 +18,5 @@ type IStudentRepository interface {
 	FindByUsername(ctx context.Context, username string) (*models.User, error)
 	FindByStudentID(ctx context.Context, studentID uuid.UUID) (*models.User, error)
 	CheckNisnAndDateOfBirth(ctx context.Context, nisn string, dateOfBirth time.Time) (*models.User, error)
+	UpdateNewPassword(ctx context.Context, studentID uuid.UUID, password string) error
 }

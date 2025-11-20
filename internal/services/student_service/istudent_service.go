@@ -15,4 +15,5 @@ type IStudentService interface {
 	Logout(ctx context.Context, studentID uuid.UUID, token string) error
 	CheckTokenBlacklisted(ctx context.Context, token string) (bool, error)
 	CheckNisnAndDateOfBirth(ctx context.Context, req studentrequest.CheckNisnAndDateOfBirth) (*models.User, error)
+	UpdateNewPasswordStudent(ctx context.Context, studentID uuid.UUID, req studentrequest.UpdatePassword) error
 }

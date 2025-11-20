@@ -249,3 +249,47 @@ func (s *StudentServiceImpl) CheckNisnAndDateOfBirth(ctx context.Context, req st
 
 	return student, nil
 }
+
+// UpdateNewPasswordStudent implements IStudentService.
+func (s *StudentServiceImpl) UpdateNewPasswordStudent(ctx context.Context, studentID uuid.UUID, req studentrequest.UpdatePassword) error {
+	if strings.TrimSpace(req.NewPassword) == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "new password is required", 400)
+	}
+
+	if strings.TrimSpace(req.ConfirmPassword) == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "confirm password is required", 400)
+	}
+
+	if req.StudentID == uuid.Nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "student id is required", 400)
+	}
+
+	if strings.TrimSpace(req.NewPassword) != strings.TrimSpace(req.ConfirmPassword) {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "new password and confirm password doesn't match", 400)
+	}
+
+	redisKey := fmt.Sprintf("id_forgot_password:%s", studentID)
+	cacheData, err := configs.GetRedis(ctx, redisKey)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "reset password session expired", 401)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get cache", 500)
+	}
+
+	var stored map[string]any
+	_ = json.Unmarshal([]byte(cacheData), &stored)
+
+	hashed, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed hashing password", 500)
+	}
+
+	if err := s.studenRepo.UpdateNewPassword(ctx, studentID, hashed); err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to update password", 500)
+	}
+
+	_ = configs.DeleteRedis(ctx, redisKey)
+
+	return nil
+}
