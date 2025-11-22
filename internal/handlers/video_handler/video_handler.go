@@ -9,6 +9,7 @@ import (
 	"giat-cerika-service/pkg/utils"
 	"net/http"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -27,7 +28,23 @@ func (ch *VideoHandler) CreateVideo(c echo.Context) error {
 		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
 	}
 
-	err := ch.videoService.CreateVideo(c.Request().Context(), req)
+	token, ok := c.Get("user").(*jwt.Token)
+	if !ok {
+		return response.Error(c, http.StatusUnauthorized, "unauthorized", "invalid token type")
+	}
+
+	claims, ok := token.Claims.(*utils.JWTClaims)
+	if !ok {
+		return response.Error(c, http.StatusUnauthorized, "unauthorized", "invalid token claims")
+	}
+
+	creatorID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "invalid user id in token", err)
+	}
+
+	// LEMPAR KE SERVICE + CREATOR-ID
+	err = ch.videoService.CreateVideo(c.Request().Context(), req, creatorID)
 	if err != nil {
 		if customErr, ok := errorresponse.AsCustomErr(err); ok {
 			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
@@ -35,7 +52,7 @@ func (ch *VideoHandler) CreateVideo(c echo.Context) error {
 		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to create video")
 	}
 
-	return response.Success(c, http.StatusOK, "Video Created Succssfully", nil)
+	return response.Success(c, http.StatusOK, "Video created successfully", nil)
 }
 
 func (ch *VideoHandler) GetAllVideo(c echo.Context) error {

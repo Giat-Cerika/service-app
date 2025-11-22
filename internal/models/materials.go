@@ -19,12 +19,12 @@ type Materials struct {
 }
 
 type MaterialImages struct {
-	ID         uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	MaterialID uuid.UUID `gorm:"type:uuid;index"`
-	Material   Materials `gorm:"foreignKey:MaterialID;constraint:OnDelete:CASCADE"`
-	ImageID    uuid.UUID `gorm:"type:uuid;index"`
-	Image      Image     `gorm:"foreignKey:ImageID"`
-	AltText    string    `gorm:"type:varchar(255)"`
-	CreatedAt  time.Time `gorm:"autoCreateTime"`
-	UpdatedAt  time.Time `gorm:"autoUpdateTime"`
+	ID         uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	MaterialID uuid.UUID `gorm:"type:uuid;index" json:"material_id"`
+	Material   Materials `gorm:"foreignKey:MaterialID;OnDelete:CASCADE" json:"material"`
+	ImageID    uuid.UUID `gorm:"type:uuid;index" json:"image_id"`
+	Image      Image     `gorm:"foreignKey:ImageID" json:"image"`
+	AltText    string    `gorm:"type:varchar(255)" json:"alt_text"`
+	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }

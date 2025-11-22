@@ -40,7 +40,12 @@ func (c *VideoServiceImpl) invalidateCacheVideo(ctx context.Context) {
 }
 
 // CreateVideo implements IVideoService.
-func (c *VideoServiceImpl) CreateVideo(ctx context.Context, req videorequest.CreateVideoRequest) error {
+func (c *VideoServiceImpl) CreateVideo(
+	ctx context.Context,
+	req videorequest.CreateVideoRequest,
+	creatorID uuid.UUID,
+) error {
+
 	existVideo, err := c.videoRepo.FindByTitle(ctx, req.Title)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get name video", 500)
@@ -65,6 +70,7 @@ func (c *VideoServiceImpl) CreateVideo(ctx context.Context, req videorequest.Cre
 		VideoPath:   req.VideoPath,
 		Title:       req.Title,
 		Description: req.Description,
+		CreatedBy:   creatorID, // <-- SET CREATOR DI SINI
 	}
 
 	err = c.videoRepo.Create(ctx, newVideo)
@@ -73,9 +79,7 @@ func (c *VideoServiceImpl) CreateVideo(ctx context.Context, req videorequest.Cre
 	}
 
 	c.invalidateCacheVideo(ctx)
-
 	return nil
-
 }
 
 // GetAllVideo implements IVideoService.

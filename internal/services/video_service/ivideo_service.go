@@ -9,7 +9,7 @@ import (
 )
 
 type IVideoService interface {
-	CreateVideo(ctx context.Context, req videorequest.CreateVideoRequest) error
+	CreateVideo(ctx context.Context, req videorequest.CreateVideoRequest, creatorID uuid.UUID) error
 	GetAllVideo(ctx context.Context, page, limit int, search string) ([]*models.Video, int, error)
 	GetByIdVideo(ctx context.Context, videoId uuid.UUID) (*models.Video, error)
 	UpdateVideo(ctx context.Context, videoId uuid.UUID, req videorequest.UpdateVideoRequest) error
