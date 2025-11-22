@@ -8,7 +8,13 @@ import (
 )
 
 func StartWorker() {
+	materiHandler := handlerconsumer.NewMateriHandler()
 	go consumer.StartImageConsumer(rabbitmq.SendImageProfileStudentQueueName, &handlerconsumer.StudentImageHandler{}, func() any { return &payload.ImageUploadPayload{} })
 	go consumer.StartImageConsumer(rabbitmq.SendImageProfileAdminQueueName, &handlerconsumer.AdminPhotoHandler{}, func() any { return &payload.ImageUploadPayload{} })
+	go consumer.StartImageConsumer(
+		rabbitmq.SendImageMateriQueueName,
+		materiHandler,
+		func() any { return &payload.ImageUploadPayload{} },
+	)
 	select {}
 }

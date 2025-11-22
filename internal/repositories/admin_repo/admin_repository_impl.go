@@ -59,3 +59,17 @@ func (a *AdminRepositoryImpl) FindByAdminID(ctx context.Context, adminID uuid.UU
 
 	return &user, nil
 }
+
+// FindSuperAdmin implements IAdminRepository.
+func (a *AdminRepositoryImpl) FindAdmin(ctx context.Context, adminId uuid.UUID) (*models.User, error) {
+	var admin models.User
+	if err := a.db.WithContext(ctx).
+		Joins("LEFT JOIN roles ON roles.id = users.role_id").
+		Where("users.id = ? AND roles.name = ?", adminId, "admin").
+		Preload("Role").
+		First(&admin).Error; err != nil {
+		return nil, err
+	}
+
+	return &admin, nil
+}

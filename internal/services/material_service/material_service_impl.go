@@ -9,8 +9,14 @@ import (
 	datasources "giat-cerika-service/internal/dataSources"
 	materialrequest "giat-cerika-service/internal/dto/request/material_request"
 	"giat-cerika-service/internal/models"
+	adminrepo "giat-cerika-service/internal/repositories/admin_repo"
 	materialrepo "giat-cerika-service/internal/repositories/material_repo"
 	errorresponse "giat-cerika-service/pkg/constant/error_response"
+	rabbitmq "giat-cerika-service/pkg/constant/rabbitMq"
+	"giat-cerika-service/pkg/utils"
+	"giat-cerika-service/pkg/workers/payload"
+	"io"
+	"mime/multipart"
 	"strings"
 	"time"
 
@@ -21,12 +27,13 @@ import (
 
 type MaterialServiceImpl struct {
 	materialRepo materialrepo.IMaterialRepository
+	adminRepo    adminrepo.IAdminRepository
 	rdb          *redis.Client
 	cld          datasources.CloudinaryService
 }
 
-func NewMaterialServiceImpl(materialRepo materialrepo.IMaterialRepository, rdb *redis.Client, cld datasources.CloudinaryService) IMaterialService {
-	return &MaterialServiceImpl{materialRepo: materialRepo, rdb: rdb, cld: cld}
+func NewMaterialServiceImpl(materialRepo materialrepo.IMaterialRepository, adminRepo adminrepo.IAdminRepository, rdb *redis.Client, cld datasources.CloudinaryService) IMaterialService {
+	return &MaterialServiceImpl{materialRepo: materialRepo, adminRepo: adminRepo, rdb: rdb, cld: cld}
 }
 
 func (c *MaterialServiceImpl) invalidateCacheMaterial(ctx context.Context) {
@@ -41,59 +48,97 @@ func (c *MaterialServiceImpl) invalidateCacheMaterial(ctx context.Context) {
 	}
 }
 
+func fileMateriToBytes(fh *multipart.FileHeader) ([]byte, error) {
+	f, err := fh.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+	return io.ReadAll(f)
+}
+
+var PublishImageAsync = func(p payload.ImageUploadPayload) {
+	go func() {
+		_ = rabbitmq.PublishToQueue(
+			"",
+			rabbitmq.SendImageMateriQueueName,
+			p,
+		)
+	}()
+}
+
 // CreateMaterial implements IMaterialService.
-func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialrequest.CreateMaterialRequest) error {
-    userID_raw := ctx.Value("user_id")
-    if userID_raw == nil {
-        return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "user not authorized", 401)
-    }
-    userID, ok := userID_raw.(uuid.UUID)
-    if !ok {
-        return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "invalid user id", 401)
-    }
+func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, adminId uuid.UUID, req materialrequest.CreateMaterialRequest) error {
+	admin, err := c.adminRepo.FindAdmin(ctx, adminId)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "users need access permission", 401)
+	}
 
-    if strings.TrimSpace(req.Title) == "" {
-        return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "name material is required", 400)
-    }
-    if strings.TrimSpace(req.Description) == "" {
-        return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "description is required", 400)
-    }
-    if req.Cover == nil {
-        return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Cover image is required", 400)
-    }
-    if len(req.Gallery) == 0 {
-        return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "images are required", 400)
-    }
+	if strings.TrimSpace(req.Title) == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "title material is required", 400)
+	}
+	if strings.TrimSpace(req.Description) == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "description is required", 400)
+	}
+	if req.Cover == nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Cover image is required", 400)
+	}
+	if req.Gallery == nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "galerry image is required", 400)
+	}
+	if len(req.Gallery) == 0 {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "gallery are required", 400)
+	}
 
-    existing, err := c.materialRepo.FindByTitle(ctx, req.Title)
-    if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-        return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get material", 500)
-    }
-    if existing != nil {
-        return errorresponse.NewCustomError(errorresponse.ErrExists, "material name already exists", 409)
-    }
+	existing, err := c.materialRepo.FindByTitle(ctx, req.Title)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get material", 500)
+	}
+	if existing != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "material name already exists", 409)
+	}
 
-    err = configs.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	materi := &models.Materials{
+		ID:          uuid.New(),
+		Title:       req.Title,
+		Description: req.Description,
+		CreatedBy:   admin.ID,
+	}
 
-        material := &models.Materials{
-            ID:          uuid.New(),
-            Title:       req.Title,
-            Description: req.Description,
-            CreatedBy:   userID,  
-        }
+	if err := c.materialRepo.Create(ctx, materi); err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create materi", 500)
+	}
 
-        if err := tx.Create(material).Error; err != nil {
-            return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create material", 500)
-        }
+	if req.Cover != nil {
+		if bin, err := fileMateriToBytes(req.Cover); err == nil && len(bin) > 0 {
+			go PublishImageAsync(payload.ImageUploadPayload{
+				ID:        materi.ID,
+				Type:      "single",
+				FileBytes: bin,
+				Folder:    "giat_ceria/materials",
+				Filename:  fmt.Sprintf("materi_%s_cover", materi.ID.String()),
+			})
+		}
+	}
+	for i, g := range req.Gallery {
+		if g == nil {
+			continue
+		}
+		if bin, err := fileMateriToBytes(g); err == nil && len(bin) > 0 {
+			go PublishImageAsync(payload.ImageUploadPayload{
+				ID:        materi.ID,
+				Type:      "many",
+				FileBytes: bin,
+				Folder:    "giat_ceria/materials",
+				Filename:  fmt.Sprintf("materi_%s_gallery_%d", materi.ID, i+1),
+			})
 
-        return nil
-    })
-    if err != nil {
-        return err
-    }
+		}
+	}
 
-    c.invalidateCacheMaterial(ctx)
-    return nil
+	c.invalidateCacheMaterial(ctx)
+	return nil
 }
 
 // GetAllMaterial implements IMaterialService.
@@ -173,6 +218,50 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 		material.Description = req.Description
 	}
 
+	if req.Cover != nil {
+		if material.Cover != "" {
+			publicID := utils.ExtractPublicIDFromCloudinaryURL(material.Cover)
+			if publicID != "" {
+				_ = c.cld.DestroyImage(ctx, publicID)
+			}
+		}
+		if bin, err := fileMateriToBytes(req.Cover); err == nil && len(bin) > 0 {
+			go PublishImageAsync(payload.ImageUploadPayload{
+				ID:        material.ID,
+				Type:      "single",
+				FileBytes: bin,
+				Folder:    "giat_ceria/materials",
+				Filename:  fmt.Sprintf("materi_%s_cover", material.ID.String()),
+			})
+		}
+	}
+
+	if len(req.Gallery) > 0 {
+		if req.ReplaceGallery {
+			_ = c.materialRepo.DeleteGalleryByMateriId(ctx, material.ID)
+			for _, gi := range material.MaterialImages {
+				if gi.Image.ImagePath != "" {
+					publicID := utils.ExtractPublicIDFromCloudinaryURL(gi.Image.ImagePath)
+					if publicID != "" {
+						_ = c.cld.DestroyImage(ctx, publicID)
+					}
+				}
+			}
+		}
+
+		for i, g := range req.Gallery {
+			if bin, err := fileMateriToBytes(g); err == nil && len(bin) > 0 {
+				go PublishImageAsync(payload.ImageUploadPayload{
+					ID:        material.ID,
+					Type:      "many",
+					FileBytes: bin,
+					Folder:    "giat_ceria/materials",
+					Filename:  fmt.Sprintf("materi_%s_gallery_%d", material.ID, i+1),
+				})
+			}
+		}
+	}
+
 	err = c.materialRepo.Update(ctx, materialId, material)
 	if err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to update material", 500)
@@ -185,12 +274,25 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 
 // DeleteMaterial implements IMaterialService.
 func (c *MaterialServiceImpl) DeleteMaterial(ctx context.Context, materialId uuid.UUID) error {
-	_, err := c.materialRepo.FindById(ctx, materialId)
+	materi, err := c.materialRepo.FindById(ctx, materialId)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "material not found", 404)
 		}
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get material", 500)
+	}
+
+	if len(materi.MaterialImages) > 0 {
+		_ = c.materialRepo.DeleteGalleryByMateriId(ctx, materi.ID)
+	}
+
+	if materi.Cover != "" {
+		publicID := utils.ExtractPublicIDFromCloudinaryURL(materi.Cover)
+		if publicID != "" {
+			if err := c.cld.DestroyImage(ctx, publicID); err != nil {
+				return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete image", 500)
+			}
+		}
 	}
 
 	err = c.materialRepo.Delete(ctx, materialId)

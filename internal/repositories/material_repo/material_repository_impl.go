@@ -16,6 +16,11 @@ func NewMaterialRepositoryImpl(db *gorm.DB) IMaterialRepository {
 	return &MaterialRepositoryImpl{db: db}
 }
 
+func (c *MaterialRepositoryImpl) preloadRelations(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("MaterialImages.Image")
+}
+
 // Create implements IMaterialRepository.
 func (c *MaterialRepositoryImpl) Create(ctx context.Context, data *models.Materials) error {
 	return c.db.WithContext(ctx).Create(data).Error
@@ -35,7 +40,7 @@ func (c *MaterialRepositoryImpl) FindByTitle(ctx context.Context, Title string) 
 func (c *MaterialRepositoryImpl) FindAll(ctx context.Context, limit int, offset int, search string) ([]*models.Materials, int, error) {
 	var (
 		materiales []*models.Materials
-		count   int64
+		count      int64
 	)
 
 	query := c.db.WithContext(ctx).Model(&models.Materials{})
@@ -45,7 +50,11 @@ func (c *MaterialRepositoryImpl) FindAll(ctx context.Context, limit int, offset 
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&materiales).Error; err != nil {
+	query = c.preloadRelations(query)
+	if err := query.Offset(offset).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&materiales).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -55,7 +64,7 @@ func (c *MaterialRepositoryImpl) FindAll(ctx context.Context, limit int, offset 
 // FindById implements IMaterialRepository.
 func (c *MaterialRepositoryImpl) FindById(ctx context.Context, materialId uuid.UUID) (*models.Materials, error) {
 	var material models.Materials
-	if err := c.db.WithContext(ctx).First(&material, "id = ?", materialId).Error; err != nil {
+	if err := c.preloadRelations(c.db.WithContext(ctx)).First(&material, "id = ?", materialId).Error; err != nil {
 		return nil, err
 	}
 
@@ -70,4 +79,35 @@ func (c *MaterialRepositoryImpl) Update(ctx context.Context, materialId uuid.UUI
 // Delete implements IMaterialRepository.
 func (c *MaterialRepositoryImpl) Delete(ctx context.Context, materialId uuid.UUID) error {
 	return c.db.WithContext(ctx).Delete(&models.Materials{}, "id = ?", materialId).Error
+}
+
+// UpdateCoverMateri implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) UpdateCoverMateri(ctx context.Context, materiId uuid.UUID, cover string) error {
+	return c.db.WithContext(ctx).Model(&models.Materials{}).
+		Where("id = ?", materiId).
+		Update("cover", cover).Error
+}
+
+// CreateGallery implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) CreateGallery(ctx context.Context, materiId uuid.UUID, imageId uuid.UUID, alt string) error {
+	materiImage := &models.MaterialImages{
+		ID:         uuid.New(),
+		MaterialID: materiId,
+		ImageID:    imageId,
+		AltText:    alt,
+	}
+
+	return c.db.WithContext(ctx).Create(materiImage).Error
+}
+
+// CreateImage implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) CreateImage(ctx context.Context, image *models.Image) error {
+	return c.db.WithContext(ctx).Create(image).Error
+}
+
+// DeleteGalleryByMateriId implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) DeleteGalleryByMateriId(ctx context.Context, materiId uuid.UUID) error {
+	return c.db.WithContext(ctx).
+		Where("material_id = ?", materiId).
+		Delete(&models.MaterialImages{}).Error
 }

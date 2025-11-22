@@ -4,6 +4,7 @@ import (
 	datasources "giat-cerika-service/internal/dataSources"
 	materialhandler "giat-cerika-service/internal/handlers/material_handler"
 	"giat-cerika-service/internal/middlewares"
+	adminrepo "giat-cerika-service/internal/repositories/admin_repo"
 	materialrepo "giat-cerika-service/internal/repositories/material_repo"
 	materialservice "giat-cerika-service/internal/services/material_service"
 	"strings"
@@ -15,7 +16,8 @@ import (
 
 func MaterialRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasources.CloudinaryService) {
 	materialRepo := materialrepo.NewMaterialRepositoryImpl(db)
-	materialService := materialservice.NewMaterialServiceImpl(materialRepo, rdb, *cld)
+	adminRepo := adminrepo.NewAdminRepositoryImpl(db)
+	materialService := materialservice.NewMaterialServiceImpl(materialRepo, adminRepo, rdb, *cld)
 	materialHandler := materialhandler.NewMaterialHandler(materialService)
 
 	materialGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))

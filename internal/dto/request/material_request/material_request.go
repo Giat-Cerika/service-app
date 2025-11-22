@@ -10,8 +10,9 @@ type CreateMaterialRequest struct {
 }
 
 type UpdateMaterialRequest struct {
-	Title       string                  `form:"title" json:"title"`
-	Description string                  `form:"description" json:"description"`
-	Cover       *multipart.FileHeader   `form:"cover" swaggerignore:"true"`
-	Gallery     []*multipart.FileHeader `form:"gallery" swaggerignore:"true"`
+	Title          string                  `form:"title" json:"title"`
+	Description    string                  `form:"description" json:"description"`
+	Cover          *multipart.FileHeader   `form:"cover" swaggerignore:"true"`
+	Gallery        []*multipart.FileHeader `form:"gallery" swaggerignore:"true"`
+	ReplaceGallery bool                    `form:"replace_gallery" json:"replace_gallery"`
 }

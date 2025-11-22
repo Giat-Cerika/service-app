@@ -7,6 +7,7 @@ import (
 	errorresponse "giat-cerika-service/pkg/constant/error_response"
 	"giat-cerika-service/pkg/constant/response"
 	"giat-cerika-service/pkg/utils"
+	"mime/multipart"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -22,12 +23,29 @@ func NewMaterialHandler(service materialservice.IMaterialService) *MaterialHandl
 }
 
 func (ch *MaterialHandler) CreateMaterial(c echo.Context) error {
-	var req materialrequest.CreateMaterialRequest
-	if err := c.Bind(&req); err != nil {
-		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
 	}
 
-	err := ch.materialService.CreateMaterial(c.Request().Context(), req)
+	adminID := claims.UserID
+	var req materialrequest.CreateMaterialRequest
+	req.Title = c.FormValue("title")
+	req.Description = c.FormValue("description")
+	if cover, err := c.FormFile("cover"); err == nil {
+		req.Cover = cover
+	}
+
+	gallery := []*multipart.FileHeader{}
+	formGallery, _ := c.MultipartForm()
+	if formGallery != nil {
+		if files, ok := formGallery.File["gallery"]; ok {
+			gallery = files
+		}
+	}
+	req.Gallery = gallery
+
+	err = ch.materialService.CreateMaterial(c.Request().Context(), uuid.MustParse(adminID), req)
 	if err != nil {
 		if customErr, ok := errorresponse.AsCustomErr(err); ok {
 			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())

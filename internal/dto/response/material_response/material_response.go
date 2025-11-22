@@ -11,6 +11,7 @@ type MaterialResponse struct {
 	ID             uuid.UUID `json:"id"`
 	Title          string    `json:"title"`
 	Description    string    `json:"description"`
+	Cover          string    `json:"cover"`
 	MaterialImages []string  `json:"material_images"`
 	CreatedAt      string    `json:"created_at"`
 	UpdatedAt      string    `json:"updated_at"`
@@ -25,6 +26,7 @@ func ToMaterialResponse(material models.Materials) MaterialResponse {
 		ID:             material.ID,
 		Title:          material.Title,
 		Description:    material.Description,
+		Cover:          material.Cover,
 		MaterialImages: materialImages,
 		CreatedAt:      utils.FormatDate(material.CreatedAt),
 		UpdatedAt:      utils.FormatDate(material.UpdatedAt),

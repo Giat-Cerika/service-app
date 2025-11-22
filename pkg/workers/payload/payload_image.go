@@ -10,13 +10,8 @@ type ImageUploadPayload struct {
 	Filename  string    `json:"filename"`             // nama file upload
 }
 
-type CacheInvalidateTask struct {
-	Keys []string `json:"keys"`
-}
-
 // Implementasi interface uploadable
 func (p *ImageUploadPayload) GetFileBytes() []byte { return p.FileBytes }
 func (p *ImageUploadPayload) GetFolder() string    { return p.Folder }
 func (p *ImageUploadPayload) GetFilename() string  { return p.Filename }
 func (p *ImageUploadPayload) GetType() string      { return p.Type }
-

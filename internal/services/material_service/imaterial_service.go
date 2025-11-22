@@ -9,7 +9,7 @@ import (
 )
 
 type IMaterialService interface {
-	CreateMaterial(ctx context.Context, req materialrequest.CreateMaterialRequest) error
+	CreateMaterial(ctx context.Context, adminId uuid.UUID, req materialrequest.CreateMaterialRequest) error
 	GetAllMaterial(ctx context.Context, page, limit int, search string) ([]*models.Materials, int, error)
 	GetByIdMaterial(ctx context.Context, materialId uuid.UUID) (*models.Materials, error)
 	UpdateMaterial(ctx context.Context, materialId uuid.UUID, req materialrequest.UpdateMaterialRequest) error
