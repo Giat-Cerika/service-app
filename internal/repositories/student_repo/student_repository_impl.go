@@ -99,3 +99,19 @@ func (s *StudentRepositoryImpl) UpdateNewPassword(ctx context.Context, studentID
 
 	return nil
 }
+
+func (s *StudentRepositoryImpl) UpdateProfile(ctx context.Context, studentId uuid.UUID, data *models.User) error {
+	updateData := map[string]interface{}{
+		"name":          data.Name,
+		"username":      data.Username,
+		"nisn":          data.Nisn,
+		"age":           data.Age,
+		"class_id":      data.ClassID,
+		"date_of_birth": data.DateOfBirth,
+	}
+
+	return s.db.WithContext(ctx).
+		Model(&models.User{}).
+		Where("id = ?", studentId).
+		Updates(updateData).Error
+}

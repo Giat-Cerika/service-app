@@ -179,3 +179,67 @@ func (s *StudentHandler) UpdateNewPasswordStudent(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Password updated successfully", nil)
 }
+
+func (s *StudentHandler) UpdateProfileStudent(c echo.Context) error {
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+	}
+	studentId := claims.UserID
+
+	var req studentrequest.UpdateProfileRequest
+	req.Name = c.FormValue("name")
+	req.Username = c.FormValue("username")
+	req.Nisn = c.FormValue("nisn")
+	if dateStr := c.FormValue("date_of_birth"); dateStr != "" {
+		dateOfBirth, err := time.Parse("02-01-2006", dateStr)
+		if err != nil {
+			return response.Error(c, http.StatusBadRequest, "invalid date of birth format", err.Error())
+		}
+
+		req.DateOfBirth = dateOfBirth
+	}
+	if v := c.FormValue("age"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			req.Age = n
+		}
+	}
+	if v := c.FormValue("class_id"); v != "" {
+		if id, err := uuid.Parse(v); err == nil {
+			req.ClassID = id
+		}
+	}
+
+	err = s.studentService.UpdateProfileStudent(c.Request().Context(), uuid.MustParse(studentId), req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to update student profile")
+	}
+
+	return response.Success(c, http.StatusOK, "Updated Student Profile Successfully", nil)
+}
+
+func (s *StudentHandler) EditPhotoStudent(c echo.Context) error {
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+	}
+	studentId := claims.UserID
+
+	photo, err := c.FormFile("photo")
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	err = s.studentService.UpdatePhotoStudent(c.Request().Context(), uuid.MustParse(studentId), photo)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to edit photo student")
+	}
+
+	return response.Success(c, http.StatusOK, "edit photo successfully", nil)
+}

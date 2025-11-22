@@ -4,6 +4,7 @@ import (
 	"context"
 	studentrequest "giat-cerika-service/internal/dto/request/student_request"
 	"giat-cerika-service/internal/models"
+	"mime/multipart"
 
 	"github.com/google/uuid"
 )
@@ -16,4 +17,6 @@ type IStudentService interface {
 	CheckTokenBlacklisted(ctx context.Context, token string) (bool, error)
 	CheckNisnAndDateOfBirth(ctx context.Context, req studentrequest.CheckNisnAndDateOfBirth) (*models.User, error)
 	UpdateNewPasswordStudent(ctx context.Context, studentID uuid.UUID, req studentrequest.UpdatePassword) error
+	UpdateProfileStudent(ctx context.Context, studentId uuid.UUID, req studentrequest.UpdateProfileRequest) error
+	UpdatePhotoStudent(ctx context.Context, studentId uuid.UUID, photo *multipart.FileHeader) error
 }

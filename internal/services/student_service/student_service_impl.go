@@ -293,3 +293,95 @@ func (s *StudentServiceImpl) UpdateNewPasswordStudent(ctx context.Context, stude
 
 	return nil
 }
+
+// UpdateProfileStudent implements IStudentService.
+func (s *StudentServiceImpl) UpdateProfileStudent(ctx context.Context, studentId uuid.UUID, req studentrequest.UpdateProfileRequest) error {
+	student, err := s.studenRepo.FindByStudentID(ctx, studentId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "student not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
+	}
+
+	// 2. Cek unique Username, pastikan bukan milik dirinya sendiri
+	existUsername, err := s.studenRepo.FindByUsername(ctx, req.Username)
+	if err == nil && existUsername.ID != studentId {
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "Username already exists", 409)
+	}
+
+	// 3. Cek unique NISN, pastikan bukan miliknya sendiri
+	existNisn, err := s.studenRepo.FindNisnUnique(ctx, req.Nisn)
+	if err == nil && existNisn != *student.Nisn {
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "NISN already exists", 409)
+	}
+
+	class, err := s.classRepo.FindById(ctx, req.ClassID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "class not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get class", 500)
+	}
+
+	if req.Username != "" {
+		student.Username = req.Username
+	}
+	if req.Nisn != "" {
+		student.Nisn = &req.Nisn
+	}
+	if req.Name != "" {
+		student.Name = &req.Name
+	}
+	if req.Age != 0 {
+		student.Age = req.Age
+	}
+	if !req.DateOfBirth.IsZero() {
+		student.DateOfBirth = &req.DateOfBirth
+	}
+	if req.ClassID != uuid.Nil {
+		student.ClassID = &class.ID
+	}
+
+	err = s.studenRepo.UpdateProfile(ctx, studentId, student)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to update student", 500)
+	}
+
+	return nil
+}
+
+// UpdatePhotoStudent implements IStudentService.
+func (s *StudentServiceImpl) UpdatePhotoStudent(ctx context.Context, studentId uuid.UUID, photo *multipart.FileHeader) error {
+	student, err := s.studenRepo.FindByStudentID(ctx, studentId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "student not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
+	}
+
+	if photo != nil {
+		if student.Photo != "" {
+			publicID := utils.ExtractPublicIDFromCloudinaryURL(student.Photo)
+			if publicID != "" {
+				if err := s.cld.DestroyImage(ctx, publicID); err != nil {
+					return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete image", 500)
+				}
+			}
+		}
+
+		if bin, err := fileStudentToBytes(photo); err == nil && len(bin) > 0 {
+			task := payload.ImageUploadPayload{
+				ID:        student.ID,
+				Type:      "single",
+				FileBytes: bin,
+				Folder:    "giat_ceria/photo_student",
+				Filename:  fmt.Sprintf("student_%s_photo", studentId.String()),
+			}
+			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileStudentQueueName, task)
+		}
+	}
+
+	return nil
+}

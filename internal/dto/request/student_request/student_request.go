@@ -34,3 +34,12 @@ type UpdatePassword struct {
 	NewPassword     string    `form:"new_password" json:"new_password"`
 	ConfirmPassword string    `form:"confirm_password" json:"confirm_password"`
 }
+
+type UpdateProfileRequest struct {
+	Name        string    `form:"name" json:"name"`
+	Username    string    `form:"username" json:"username"`
+	Nisn        string    `form:"nisn" json:"nisn"`
+	DateOfBirth time.Time `form:"date_of_birth" json:"date_of_birth"`
+	Age         int       `form:"age" json:"age"`
+	ClassID     uuid.UUID `form:"class_id" json:"class_id"`
+}
