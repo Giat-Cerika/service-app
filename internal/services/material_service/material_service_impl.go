@@ -136,10 +136,6 @@ func (c *MaterialServiceImpl) invalidateCacheMaterial(ctx context.Context) {
 
 // CreateMaterial implements IMaterialService.
 func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialrequest.CreateMaterialRequest) error {
-
-	// -------------------------
-	// 1. Ambil user ID dari context (sudah diperbaiki middleware kamu)
-	// -------------------------
 	userID_raw := ctx.Value("user_id")
 	if userID_raw == nil {
 		return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "user not authorized", 401)
@@ -155,9 +151,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "invalid uuid format", 401)
 	}
 
-	// -------------------------
-	// 2. Validasi request
-	// -------------------------
 	if strings.TrimSpace(req.Title) == "" {
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "title is required", 400)
 	}
@@ -171,9 +164,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "gallery images are required", 400)
 	}
 
-	// -------------------------
-	// 3. Cek apakah title sudah ada
-	// -------------------------
 	existing, err := c.materialRepo.FindByTitle(ctx, req.Title)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to check material", 500)
@@ -182,9 +172,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		return errorresponse.NewCustomError(errorresponse.ErrExists, "material name already exists", 409)
 	}
 
-	// -------------------------
-	// 4. Upload cover + gallery (parallel)
-	// -------------------------
 	folder := "giat-cerika-service/materials"
 	nameSlug := Sanitize(req.Title)
 
@@ -200,7 +187,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 
 	wg.Add(2)
 
-	// Upload cover
 	go func() {
 		defer wg.Done()
 
@@ -214,7 +200,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		resultChan <- uploadResult{coverURL: u.URL}
 	}()
 
-	// Upload gallery
 	go func() {
 		defer wg.Done()
 
@@ -239,7 +224,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		return uploadErr
 	}
 
-	// Ambil hasil upload
 	var coverURL string
 	var galleryURLs []string
 
@@ -252,12 +236,8 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		}
 	}
 
-	// -------------------------
-	// 5. Simpan ke database
-	// -------------------------
 	err = configs.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
-		// Buat material
 		material := &models.Materials{
 			ID:          uuid.New(),
 			Title:       req.Title,
@@ -269,7 +249,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create material", 500)
 		}
 
-		// 5.1 Upload cover sebagai image pertama
 		coverImg := models.Image{
 			ID:        uuid.New(),
 			ImagePath: coverURL,
@@ -279,7 +258,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to save cover image", 500)
 		}
 
-		// Relasi cover
 		coverRel := models.MaterialImages{
 			ID:         uuid.New(),
 			MaterialID: material.ID,
@@ -291,7 +269,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to save cover relation", 500)
 		}
 
-		// 5.2 Upload gallery image
 		if len(galleryURLs) > 0 {
 
 			images := make([]models.Image, 0, len(galleryURLs))
@@ -328,9 +305,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		return err
 	}
 
-	// -------------------------
-	// 6. Kirim ke RabbitMQ untuk invalidate cache
-	// -------------------------
 	_ = rabbitmq.PublishToQueue(
 		"",
 		rabbitmq.CacheInvalidateQueueName,
@@ -339,7 +313,6 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialre
 		},
 	)
 
-	// optional local invalidate
 	c.invalidateCacheMaterial(ctx)
 
 	return nil
