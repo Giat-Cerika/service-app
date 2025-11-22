@@ -1,6 +1,8 @@
 package configs
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -10,6 +12,9 @@ import (
 
 var RabbitConn *amqp.Connection
 var RabbitChannel *amqp.Channel
+const (
+	CacheInvalidateQueueName = "cache.invalidate.q"
+)
 
 func InitRabbitMQ() {
 	amqpURL := os.Getenv("AMQP_URL")
@@ -49,6 +54,40 @@ func GetRabbitChannel() *amqp.Channel {
 		}
 	}
 	return RabbitChannel
+}
+
+func PublishToQueue(exchangeName string, queueName string, payload interface{}) error {
+	ch := GetRabbitChannel()
+	if ch == nil {
+		return fmt.Errorf("failed to get an active RabbitMQ channel")
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	_, err = ch.QueueDeclare(
+		queueName,
+		true, false, false, false, nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare queue: %w", err)
+	}
+
+	err = ch.Publish(
+		exchangeName, queueName, false, false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish message: %w", err)
+	}
+
+	log.Printf("Successfully published message to queue %s", queueName)
+	return nil
 }
 
 func CloseConnections() {

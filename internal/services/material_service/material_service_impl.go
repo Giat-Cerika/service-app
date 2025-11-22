@@ -6,12 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"giat-cerika-service/configs"
+	rabbitmq "giat-cerika-service/configs"
+	datasources "giat-cerika-service/internal/dataSources"
 	materialrequest "giat-cerika-service/internal/dto/request/material_request"
 	"giat-cerika-service/internal/models"
 	materialrepo "giat-cerika-service/internal/repositories/material_repo"
 	errorresponse "giat-cerika-service/pkg/constant/error_response"
+	"giat-cerika-service/pkg/workers/payload"
+	"mime/multipart"
+	"path/filepath"
 	"strings"
 	"time"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -21,10 +27,99 @@ import (
 type MaterialServiceImpl struct {
 	materialRepo materialrepo.IMaterialRepository
 	rdb          *redis.Client
+	cld          datasources.CloudinaryService
 }
 
-func NewMaterialServiceImpl(materialRepo materialrepo.IMaterialRepository, rdb *redis.Client) IMaterialService {
-	return &MaterialServiceImpl{materialRepo: materialRepo, rdb: rdb}
+func NewMaterialServiceImpl(materialRepo materialrepo.IMaterialRepository, rdb *redis.Client, cld datasources.CloudinaryService) IMaterialService {
+	return &MaterialServiceImpl{materialRepo: materialRepo, rdb: rdb, cld: cld}
+}
+
+func BuildPublicID(folder, filename string) string {
+	return fmt.Sprintf("%s/%s", folder, filename)
+}
+
+func Sanitize(s string) string {
+	s = strings.TrimSpace(strings.ToLower(s))
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
+}
+
+func (p *MaterialServiceImpl) UploadSingle(ctx context.Context, folder, filename string, file *multipart.FileHeader) (string, string, error) {
+	data, err := p.cld.UploadImage(ctx, file, folder, filename)
+	if err != nil {
+		return "", "", err
+	}
+	return data.URL, BuildPublicID(folder, filename), nil
+}
+
+func (p *MaterialServiceImpl) UploadMany(ctx context.Context, folder, prefix string, files []*multipart.FileHeader, workers int) ([]string, []string, error) {
+	if len(files) == 0 {
+		return nil, nil, nil
+	}
+	if workers < 1 {
+		workers = 3
+	}
+
+	type job struct {
+		idx int
+		f   *multipart.FileHeader
+	}
+	type result struct {
+		idx      int
+		url      string
+		publicID string
+		err      error
+	}
+
+	jobs := make(chan job)
+	results := make(chan result)
+
+	worker := func() {
+		for j := range jobs {
+			ext := strings.ToLower(filepath.Ext(j.f.Filename))
+			fileName := fmt.Sprintf("%s_%d%s", prefix, j.idx, ext)
+
+			data, err := p.cld.UploadImage(ctx, j.f, folder, fileName)
+			if err != nil {
+				results <- result{idx: j.idx, err: err}
+				continue
+			}
+			results <- result{idx: j.idx, url: data.URL, publicID: BuildPublicID(folder, fileName)}
+		}
+	}
+
+	for i := 0; i < workers; i++ {
+		go worker()
+	}
+
+	go func() {
+		for i, f := range files {
+			jobs <- job{idx: i, f: f}
+		}
+		close(jobs)
+	}()
+
+	urls := make([]string, len(files))
+	pids := make([]string, len(files))
+	var firstErr error
+	done := 0
+	timeout := time.After(120 * time.Second)
+
+	for done < len(files) {
+		select {
+		case r := <-results:
+			if r.err != nil && firstErr == nil {
+				firstErr = r.err
+			}
+			urls[r.idx] = r.url
+			pids[r.idx] = r.publicID
+			done++
+		case <-timeout:
+		case <-ctx.Done():
+		}
+	}
+
+	return urls, pids, firstErr
 }
 
 func (c *MaterialServiceImpl) invalidateCacheMaterial(ctx context.Context) {
@@ -41,38 +136,215 @@ func (c *MaterialServiceImpl) invalidateCacheMaterial(ctx context.Context) {
 
 // CreateMaterial implements IMaterialService.
 func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, req materialrequest.CreateMaterialRequest) error {
-	existMaterial, err := c.materialRepo.FindByTitle(ctx, req.Title)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get name material", 500)
+
+	// -------------------------
+	// 1. Ambil user ID dari context (sudah diperbaiki middleware kamu)
+	// -------------------------
+	userID_raw := ctx.Value("user_id")
+	if userID_raw == nil {
+		return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "user not authorized", 401)
 	}
 
-	if existMaterial != nil {
-		return errorresponse.NewCustomError(errorresponse.ErrExists, "name material already exists", 409)
+	userIDStr, ok := userID_raw.(string)
+	if !ok {
+		return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "invalid user id format", 401)
 	}
 
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrUnauthorized, "invalid uuid format", 401)
+	}
+
+	// -------------------------
+	// 2. Validasi request
+	// -------------------------
 	if strings.TrimSpace(req.Title) == "" {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Name Material is required", 400)
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "title is required", 400)
 	}
 	if strings.TrimSpace(req.Description) == "" {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Description is required", 400)
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "description is required", 400)
+	}
+	if req.Cover == nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "cover image is required", 400)
+	}
+	if len(req.Gallery) == 0 {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "gallery images are required", 400)
 	}
 
-	newMaterial := &models.Materials{
-		ID:          uuid.New(),
-		Title:       req.Title,
-		Description: req.Description,
+	// -------------------------
+	// 3. Cek apakah title sudah ada
+	// -------------------------
+	existing, err := c.materialRepo.FindByTitle(ctx, req.Title)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to check material", 500)
+	}
+	if existing != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "material name already exists", 409)
 	}
 
-	err = c.materialRepo.Create(ctx, newMaterial)
+	// -------------------------
+	// 4. Upload cover + gallery (parallel)
+	// -------------------------
+	folder := "giat-cerika-service/materials"
+	nameSlug := Sanitize(req.Title)
+
+	var wg sync.WaitGroup
+	var uploadErr error
+
+	type uploadResult struct {
+		coverURL string
+		gallery  []string
+	}
+
+	resultChan := make(chan uploadResult, 2)
+
+	wg.Add(2)
+
+	// Upload cover
+	go func() {
+		defer wg.Done()
+
+		filename := "cover_" + nameSlug
+		u, err := c.cld.UploadImage(ctx, req.Cover, folder, filename)
+		if err != nil {
+			uploadErr = err
+			return
+		}
+
+		resultChan <- uploadResult{coverURL: u.URL}
+	}()
+
+	// Upload gallery
+	go func() {
+		defer wg.Done()
+
+		if len(req.Gallery) == 0 {
+			resultChan <- uploadResult{}
+			return
+		}
+
+		urls, _, err := c.UploadMany(ctx, folder, "gallery_"+nameSlug, req.Gallery, 10)
+		if err != nil {
+			uploadErr = err
+			return
+		}
+
+		resultChan <- uploadResult{gallery: urls}
+	}()
+
+	wg.Wait()
+	close(resultChan)
+
+	if uploadErr != nil {
+		return uploadErr
+	}
+
+	// Ambil hasil upload
+	var coverURL string
+	var galleryURLs []string
+
+	for r := range resultChan {
+		if r.coverURL != "" {
+			coverURL = r.coverURL
+		}
+		if len(r.gallery) > 0 {
+			galleryURLs = r.gallery
+		}
+	}
+
+	// -------------------------
+	// 5. Simpan ke database
+	// -------------------------
+	err = configs.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
+		// Buat material
+		material := &models.Materials{
+			ID:          uuid.New(),
+			Title:       req.Title,
+			Description: req.Description,
+			CreatedBy:   userID,
+		}
+
+		if err := tx.Create(material).Error; err != nil {
+			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create material", 500)
+		}
+
+		// 5.1 Upload cover sebagai image pertama
+		coverImg := models.Image{
+			ID:        uuid.New(),
+			ImagePath: coverURL,
+		}
+
+		if err := tx.Create(&coverImg).Error; err != nil {
+			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to save cover image", 500)
+		}
+
+		// Relasi cover
+		coverRel := models.MaterialImages{
+			ID:         uuid.New(),
+			MaterialID: material.ID,
+			ImageID:    coverImg.ID,
+			AltText:    req.Title + " Cover",
+		}
+
+		if err := tx.Create(&coverRel).Error; err != nil {
+			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to save cover relation", 500)
+		}
+
+		// 5.2 Upload gallery image
+		if len(galleryURLs) > 0 {
+
+			images := make([]models.Image, 0, len(galleryURLs))
+			for _, url := range galleryURLs {
+				images = append(images, models.Image{
+					ID:        uuid.New(),
+					ImagePath: url,
+				})
+			}
+
+			if err := tx.Create(&images).Error; err != nil {
+				return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create gallery images", 500)
+			}
+
+			relations := make([]models.MaterialImages, 0, len(images))
+			for _, img := range images {
+				relations = append(relations, models.MaterialImages{
+					ID:         uuid.New(),
+					MaterialID: material.ID,
+					ImageID:    img.ID,
+					AltText:    req.Title,
+				})
+			}
+
+			if err := tx.Create(&relations).Error; err != nil {
+				return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create material images", 500)
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return errorresponse.NewCustomError(errorresponse.ErrInternal, "Failed to create material", 500)
+		return err
 	}
 
+	// -------------------------
+	// 6. Kirim ke RabbitMQ untuk invalidate cache
+	// -------------------------
+	_ = rabbitmq.PublishToQueue(
+		"",
+		rabbitmq.CacheInvalidateQueueName,
+		payload.CacheInvalidateTask{
+			Keys: []string{"materials:*"},
+		},
+	)
+
+	// optional local invalidate
 	c.invalidateCacheMaterial(ctx)
 
 	return nil
-
 }
+
 
 // GetAllMaterial implements IMaterialService.
 func (c *MaterialServiceImpl) GetAllMaterial(ctx context.Context, page int, limit int, search string) ([]*models.Materials, int, error) {
