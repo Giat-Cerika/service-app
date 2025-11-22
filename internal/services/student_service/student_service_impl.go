@@ -46,6 +46,16 @@ func fileStudentToBytes(fh *multipart.FileHeader) ([]byte, error) {
 	return io.ReadAll(f)
 }
 
+var PublishImageAsync = func(p payload.ImageUploadPayload) {
+	go func() {
+		_ = rabbitmq.PublishToQueue(
+			"",
+			rabbitmq.SendImageProfileStudentQueueName,
+			p,
+		)
+	}()
+}
+
 // Register implements IStudentService.
 func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.RegisterStudentRequest) error {
 	uniqueUsername, err := s.studenRepo.FindUsernameUnique(ctx, req.Username)
@@ -131,15 +141,13 @@ func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.Re
 
 	if req.Photo != nil {
 		if binner, err := fileStudentToBytes(req.Photo); err == nil && len(binner) > 0 {
-			pay := payload.ImageUploadPayload{
+			go PublishImageAsync(payload.ImageUploadPayload{
 				ID:        newStudent.ID,
 				Type:      "single",
 				FileBytes: binner,
 				Folder:    "giat_ceria/photo_student",
 				Filename:  fmt.Sprintf("student_%s_photo", newStudent.ID.String()),
-			}
-
-			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileStudentQueueName, pay)
+			})
 		}
 	}
 
@@ -372,14 +380,13 @@ func (s *StudentServiceImpl) UpdatePhotoStudent(ctx context.Context, studentId u
 		}
 
 		if bin, err := fileStudentToBytes(photo); err == nil && len(bin) > 0 {
-			task := payload.ImageUploadPayload{
+			go PublishImageAsync(payload.ImageUploadPayload{
 				ID:        student.ID,
 				Type:      "single",
 				FileBytes: bin,
 				Folder:    "giat_ceria/photo_student",
 				Filename:  fmt.Sprintf("student_%s_photo", studentId.String()),
-			}
-			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileStudentQueueName, task)
+			})
 		}
 	}
 

@@ -43,6 +43,16 @@ func fileAdminToBytes(fh *multipart.FileHeader) ([]byte, error) {
 	return io.ReadAll(f)
 }
 
+var PublishImageAsync = func(p payload.ImageUploadPayload) {
+	go func() {
+		_ = rabbitmq.PublishToQueue(
+			"",
+			rabbitmq.SendImageProfileAdminQueueName,
+			p,
+		)
+	}()
+}
+
 // Register implements IAdminService.
 func (a *AdminServiceImpl) Register(ctx context.Context, req adminrequest.RegisterAdminRequest) error {
 	existsUsername, err := a.adminRepo.FindUsername(ctx, req.Username)
@@ -88,15 +98,13 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req adminrequest.Regist
 
 	if req.Photo != nil {
 		if binner, err := fileAdminToBytes(req.Photo); err == nil && len(binner) > 0 {
-			pay := payload.ImageUploadPayload{
+			go PublishImageAsync(payload.ImageUploadPayload{
 				ID:        admin.ID,
 				Type:      "single",
 				FileBytes: binner,
 				Folder:    "giat_ceria/photo_admin",
 				Filename:  fmt.Sprintf("admin_%s_photo", admin.ID.String()),
-			}
-
-			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileAdminQueueName, pay)
+			})
 		}
 	}
 
