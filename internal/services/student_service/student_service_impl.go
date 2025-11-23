@@ -370,22 +370,14 @@ func (s *StudentServiceImpl) UpdatePhotoStudent(ctx context.Context, studentId u
 	}
 
 	if photo != nil {
-		if student.Photo != "" {
-			publicID := utils.ExtractPublicIDFromCloudinaryURL(student.Photo)
-			if publicID != "" {
-				if err := s.cld.DestroyImage(ctx, publicID); err != nil {
-					return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete image", 500)
-				}
-			}
-		}
-
 		if bin, err := fileStudentToBytes(photo); err == nil && len(bin) > 0 {
 			go PublishImageAsync(payload.ImageUploadPayload{
-				ID:        student.ID,
-				Type:      "single",
-				FileBytes: bin,
-				Folder:    "giat_ceria/photo_student",
-				Filename:  fmt.Sprintf("student_%s_photo", studentId.String()),
+				ID:          student.ID,
+				Type:        "single",
+				FileBytes:   bin,
+				Folder:      "giat_ceria/photo_student",
+				Filename:    fmt.Sprintf("student_%s_photo", studentId.String()),
+				OldPhotoURL: student.Photo,
 			})
 		}
 	}
