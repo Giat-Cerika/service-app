@@ -8,7 +8,15 @@ import (
 	"giat-cerika-service/pkg/workers/payload"
 )
 
-type AdminPhotoHandler struct{}
+type AdminPhotoHandler struct {
+	repo adminrepo.IAdminRepository
+}
+
+func NewAdminPhotoHandler() *AdminPhotoHandler {
+	return &AdminPhotoHandler{
+		repo: adminrepo.NewAdminRepositoryImpl(configs.DB),
+	}
+}
 
 func (h *AdminPhotoHandler) HandleSingle(ctx context.Context, photoUrl string, payloads any) error {
 	p, ok := payloads.(*payload.ImageUploadPayload)
@@ -16,8 +24,7 @@ func (h *AdminPhotoHandler) HandleSingle(ctx context.Context, photoUrl string, p
 		return nil
 	}
 
-	repo := adminrepo.NewAdminRepositoryImpl(configs.DB)
-	return repo.UpdatePhotoAdmin(ctx, p.ID, photoUrl)
+	return h.repo.UpdatePhotoAdmin(ctx, p.ID, photoUrl)
 }
 
 func (h *AdminPhotoHandler) HandleMany(ctx context.Context, image *models.Image, payloads any) error {

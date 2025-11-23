@@ -8,7 +8,15 @@ import (
 	"giat-cerika-service/pkg/workers/payload"
 )
 
-type StudentImageHandler struct{}
+type StudentImageHandler struct {
+	repo studentrepo.IStudentRepository
+}
+
+func NewStudentImageHandler() *StudentImageHandler {
+	return &StudentImageHandler{
+		repo: studentrepo.NewStudentRepositoryImpl(configs.DB),
+	}
+}
 
 func (h *StudentImageHandler) HandleSingle(ctx context.Context, imageURL string, payloads any) error {
 	p, ok := payloads.(*payload.ImageUploadPayload)
@@ -16,8 +24,7 @@ func (h *StudentImageHandler) HandleSingle(ctx context.Context, imageURL string,
 		return nil
 	}
 
-	repo := studentrepo.NewStudentRepositoryImpl(configs.DB)
-	return repo.UpdatePhotoStudent(ctx, p.ID, imageURL)
+	return h.repo.UpdatePhotoStudent(ctx, p.ID, imageURL)
 }
 
 func (h *StudentImageHandler) HandleMany(ctx context.Context, image *models.Image, payloads any) error {
