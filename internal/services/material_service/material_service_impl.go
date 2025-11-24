@@ -304,3 +304,61 @@ func (c *MaterialServiceImpl) DeleteMaterial(ctx context.Context, materialId uui
 
 	return nil
 }
+
+// GetAllLatestMaterial implements IMaterialService.
+func (c *MaterialServiceImpl) GetAllLatestMaterial(ctx context.Context) ([]*models.Materials, error) {
+	cacheKey := fmt.Sprintln("materiales:latest")
+
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var materiales []*models.Materials
+		if json.Unmarshal([]byte(cached), &materiales) == nil {
+			return materiales, nil
+		}
+	}
+
+	items, err := c.materialRepo.FindAllLatest(ctx)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get latest material", 500)
+	}
+
+	if items == nil {
+		items = []*models.Materials{}
+	}
+
+	buf, _ := json.Marshal(items)
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return items, nil
+}
+
+// GetAllPublicMaterial implements IMaterialService.
+func (c *MaterialServiceImpl) GetAllPublicMaterial(ctx context.Context, page int, limit int, search string) ([]*models.Materials, int, error) {
+	cacheKey := fmt.Sprintf("materiales:public:search:%s:page:%d:limit:%d", search, page, limit)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var result struct {
+			Data  []*models.Materials `json:"data"`
+			Total int                 `json:"total"`
+		}
+		if json.Unmarshal([]byte(cached), &result) == nil {
+			return result.Data, result.Total, nil
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	items, total, err := c.materialRepo.FindAll(ctx, limit, offset, search)
+	if err != nil {
+		return nil, 0, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get material", 500)
+	}
+	if len(items) == 0 {
+		items = []*models.Materials{}
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data":  items,
+		"total": total,
+	})
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return items, total, nil
+}

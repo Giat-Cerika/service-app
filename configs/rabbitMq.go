@@ -9,7 +9,6 @@ import (
 )
 
 var RabbitConn *amqp.Connection
-var RabbitChannel *amqp.Channel
 
 func InitRabbitMQ() {
 	amqpURL := os.Getenv("AMQP_URL")
@@ -17,44 +16,30 @@ func InitRabbitMQ() {
 		amqpURL = "amqp://guest:guest@localhost:5672/"
 	}
 
-	var err error
 	for i := 0; i < 5; i++ {
-		RabbitConn, err = amqp.Dial(amqpURL)
+		conn, err := amqp.Dial(amqpURL)
 		if err == nil {
-			RabbitChannel, err = RabbitConn.Channel()
-			if err == nil {
-				log.Println("RabbitMQ connected successfully")
-				return
-			}
+			RabbitConn = conn
+			log.Println("RabbitMQ connected successfully")
+			return
 		}
-		log.Printf("Failed to connect to RabbitMQ, retrying in %d seconds: %v", i+1, err)
-		time.Sleep(time.Second * time.Duration(i+1))
+
+		log.Printf("Retrying RabbitMQ connection (%d): %v", i+1, err)
+		time.Sleep(time.Duration(i+1) * time.Second)
 	}
-	log.Fatalf("Fatal: Could not connect to RabbitMQ after multiple retries")
+
+	log.Fatal("Failed to connect RabbitMQ")
 }
 
-func GetRabbitChannel() *amqp.Channel {
+func GetRabbitConn() *amqp.Connection {
 	if RabbitConn == nil || RabbitConn.IsClosed() {
-		log.Println("RabbitMQ connection is closed. Reconnecting...")
+		log.Println("RabbitMQ reconnecting...")
 		InitRabbitMQ()
 	}
-
-	if RabbitChannel == nil {
-		log.Println("RabbitMQ channel is not available. Opening a new channel...")
-		var err error
-		RabbitChannel, err = RabbitConn.Channel()
-		if err != nil {
-			log.Printf("Failed to open a new channel: %v", err)
-			return nil
-		}
-	}
-	return RabbitChannel
+	return RabbitConn
 }
 
 func CloseConnections() {
-	if RabbitChannel != nil {
-		_ = RabbitChannel.Close()
-	}
 	if RabbitConn != nil {
 		_ = RabbitConn.Close()
 	}

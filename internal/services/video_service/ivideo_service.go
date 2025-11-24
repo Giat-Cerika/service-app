@@ -14,4 +14,6 @@ type IVideoService interface {
 	GetByIdVideo(ctx context.Context, videoId uuid.UUID) (*models.Video, error)
 	UpdateVideo(ctx context.Context, videoId uuid.UUID, req videorequest.UpdateVideoRequest) error
 	DeleteVideo(ctx context.Context, videoId uuid.UUID) error
+	GetAllLatestVideo(ctx context.Context) ([]*models.Video, error)
+	GetAllPublicVideo(ctx context.Context, page, limit int, search string) ([]*models.Video, int, error)
 }

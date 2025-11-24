@@ -133,3 +133,43 @@ func (ch *MaterialHandler) DeleteMaterial(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Material Deleted Successfully", nil)
 }
+
+func (ch *MaterialHandler) GetAllLatestMateriaL(c echo.Context) error {
+	materiales, err := ch.materialService.GetAllLatestMaterial(c.Request().Context())
+	if err != nil {
+		// Tangani Custom Error dari service layer
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		// Tangani Internal Server Error
+		return response.Error(c, http.StatusInternalServerError, "Failed to get latest materials", err.Error())
+	}
+
+	data := make([]materialresponse.MaterialResponse, len(materiales))
+	for i, material := range materiales {
+		data[i] = materialresponse.ToMaterialResponse(*material)
+	}
+
+	return response.Success(c, http.StatusOK, "Get Latest Materials Successfully", data)
+}
+
+func (ch *MaterialHandler) GetAllPublicMaterial(c echo.Context) error {
+	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
+	search := c.QueryParam("search")
+
+	materiales, total, err := ch.materialService.GetAllPublicMaterial(c.Request().Context(), pageInt, limitInt, search)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get materiales")
+	}
+
+	meta := utils.BuildPaginationMeta(c, pageInt, limitInt, total)
+	data := make([]materialresponse.MaterialResponse, len(materiales))
+	for i, material := range materiales {
+		data[i] = materialresponse.ToMaterialResponse(*material)
+	}
+
+	return response.PaginatedSuccess(c, http.StatusOK, "Get All Materiales Successfully", data, meta)
+}

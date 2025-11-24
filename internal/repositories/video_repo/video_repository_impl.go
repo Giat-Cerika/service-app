@@ -71,3 +71,35 @@ func (c *VideoRepositoryImpl) Update(ctx context.Context, videoId uuid.UUID, dat
 func (c *VideoRepositoryImpl) Delete(ctx context.Context, videoId uuid.UUID) error {
 	return c.db.WithContext(ctx).Delete(&models.Video{}, "id = ?", videoId).Error
 }
+
+// FindAllLatest implements IVideoRepository.
+func (c *VideoRepositoryImpl) FindAllLatest(ctx context.Context) ([]*models.Video, error) {
+	var videos []*models.Video
+	query := c.db.WithContext(ctx).Model(&models.Video{})
+	if err := query.Order("created_at DESC").Limit(5).Find(&videos).Error; err != nil {
+		return nil, err
+	}
+
+	return videos, nil
+}
+
+// FindAllPublic implements IVideoRepository.
+func (c *VideoRepositoryImpl) FindAllPublic(ctx context.Context, limit int, offset int, search string) ([]*models.Video, int, error) {
+	var (
+		videoes []*models.Video
+		count   int64
+	)
+
+	query := c.db.WithContext(ctx).Model(&models.Video{})
+	if search != "" {
+		query = query.Where("name_video ILIKE ?", "%"+search+"%")
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&videoes).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return videoes, int(count), nil
+}

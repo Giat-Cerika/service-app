@@ -188,3 +188,61 @@ func (c *VideoServiceImpl) DeleteVideo(ctx context.Context, videoId uuid.UUID) e
 
 	return nil
 }
+
+// GetAllLatestVideo implements IVideoService.
+func (c *VideoServiceImpl) GetAllLatestVideo(ctx context.Context) ([]*models.Video, error) {
+	cachekey := fmt.Sprintln("videoes:latest")
+
+	if cached, err := configs.GetRedis(ctx, cachekey); err == nil && len(cached) > 0 {
+		var videos []*models.Video
+		if json.Unmarshal([]byte(cached), &videos) == nil {
+			return videos, nil
+		}
+	}
+
+	items, err := c.videoRepo.FindAllLatest(ctx)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get latest videos", 500)
+	}
+
+	if items == nil {
+		items = []*models.Video{}
+	}
+
+	buf, _ := json.Marshal(items)
+	_ = configs.SetRedis(ctx, cachekey, buf, time.Minute*30)
+
+	return items, nil
+}
+
+// GetAllPublicVideo implements IVideoService.
+func (c *VideoServiceImpl) GetAllPublicVideo(ctx context.Context, page int, limit int, search string) ([]*models.Video, int, error) {
+	cacheKey := fmt.Sprintf("videoes:public:search:%s:page:%d:limit:%d", search, page, limit)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var result struct {
+			Data  []*models.Video `json:"data"`
+			Total int             `json:"total"`
+		}
+		if json.Unmarshal([]byte(cached), &result) == nil {
+			return result.Data, result.Total, nil
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	items, total, err := c.videoRepo.FindAll(ctx, limit, offset, search)
+	if err != nil {
+		return nil, 0, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get video", 500)
+	}
+	if len(items) == 0 {
+		items = []*models.Video{}
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data":  items,
+		"total": total,
+	})
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return items, total, nil
+}

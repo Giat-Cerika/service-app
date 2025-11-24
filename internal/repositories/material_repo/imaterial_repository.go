@@ -19,4 +19,7 @@ type IMaterialRepository interface {
 	CreateImage(ctx context.Context, image *models.Image) error
 	CreateGallery(ctx context.Context, materiId uuid.UUID, imageId uuid.UUID, alt string) error
 	DeleteGalleryByMateriId(ctx context.Context, materiId uuid.UUID) error
+
+	FindAllLatest(ctx context.Context) ([]*models.Materials, error)
+	FindAllPublic(ctx context.Context, limit, offset int, search string) ([]*models.Materials, int, error)
 }

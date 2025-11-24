@@ -14,4 +14,6 @@ type IMaterialService interface {
 	GetByIdMaterial(ctx context.Context, materialId uuid.UUID) (*models.Materials, error)
 	UpdateMaterial(ctx context.Context, materialId uuid.UUID, req materialrequest.UpdateMaterialRequest) error
 	DeleteMaterial(ctx context.Context, materialId uuid.UUID) error
+	GetAllLatestMaterial(ctx context.Context) ([]*models.Materials, error)
+	GetAllPublicMaterial(ctx context.Context, page, limit int, search string) ([]*models.Materials, int, error)
 }

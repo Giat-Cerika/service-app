@@ -10,10 +10,16 @@ import (
 )
 
 func PublishToQueue(exchangeName string, queueName string, payload interface{}) error {
-	ch := configs.GetRabbitChannel()
-	if ch == nil {
-		return fmt.Errorf("failed to get an active RabbitMQ channel")
+	conn := configs.GetRabbitConn() // NEW
+	if conn == nil {
+		return fmt.Errorf("failed to get active RabbitMQ connection")
 	}
+
+	ch, err := conn.Channel() // NEW → channel per publish
+	if err != nil {
+		return fmt.Errorf("failed to open channel: %w", err)
+	}
+	defer ch.Close()
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -26,7 +32,10 @@ func PublishToQueue(exchangeName string, queueName string, payload interface{}) 
 	}
 
 	err = ch.Publish(
-		exchangeName, queueName, false, false,
+		exchangeName,
+		queueName,
+		false,
+		false,
 		amqp.Publishing{
 			ContentType: "application/json",
 			Body:        body,

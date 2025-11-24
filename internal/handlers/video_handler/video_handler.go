@@ -132,3 +132,44 @@ func (ch *VideoHandler) DeleteVideo(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Video Deleted Successfully", nil)
 }
+
+func (ch *VideoHandler) GetAllLatestVideo(c echo.Context) error {
+	videos, err := ch.videoService.GetAllLatestVideo(c.Request().Context())
+	if err != nil {
+		// Tangani Custom Error dari service layer
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		// Tangani Internal Server Error
+		return response.Error(c, http.StatusInternalServerError, "Failed to get latest videos", err.Error())
+	}
+
+	data := make([]videoresponse.VideoResponse, len(videos))
+	for i, video := range videos {
+		data[i] = videoresponse.ToVideoResponse(*video)
+	}
+
+	return response.Success(c, http.StatusOK, "Get Latest Videos Successfully", data)
+
+}
+
+func (ch *VideoHandler) GetAllPublicVideo(c echo.Context) error {
+	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
+	search := c.QueryParam("search")
+
+	videoes, total, err := ch.videoService.GetAllPublicVideo(c.Request().Context(), pageInt, limitInt, search)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get videoes")
+	}
+
+	meta := utils.BuildPaginationMeta(c, pageInt, limitInt, total)
+	data := make([]videoresponse.VideoResponse, len(videoes))
+	for i, video := range videoes {
+		data[i] = videoresponse.ToVideoResponse(*video)
+	}
+
+	return response.PaginatedSuccess(c, http.StatusOK, "Get All Videoes Successfully", data, meta)
+}

@@ -45,7 +45,7 @@ func (c *MaterialRepositoryImpl) FindAll(ctx context.Context, limit int, offset 
 
 	query := c.db.WithContext(ctx).Model(&models.Materials{})
 	if search != "" {
-		query = query.Where("name_material ILIKE ?", "%"+search+"%")
+		query = query.Where("title ILIKE ?", "%"+search+"%")
 	}
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
@@ -110,4 +110,43 @@ func (c *MaterialRepositoryImpl) DeleteGalleryByMateriId(ctx context.Context, ma
 	return c.db.WithContext(ctx).
 		Where("material_id = ?", materiId).
 		Delete(&models.MaterialImages{}).Error
+}
+
+// FindAllLatest implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) FindAllLatest(ctx context.Context) ([]*models.Materials, error) {
+	var materials []*models.Materials
+	query := c.db.WithContext(ctx).Model(&models.Materials{})
+	query = c.preloadRelations(query)
+	if err := query.
+		Order("created_at DESC"). // Urutkan dari yang terbaru
+		Limit(5).                 // Ambil 5 data teratas
+		Find(&materials).Error; err != nil {
+		return nil, err
+	}
+	return materials, nil
+}
+
+// FindAllPublic implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) FindAllPublic(ctx context.Context, limit int, offset int, search string) ([]*models.Materials, int, error) {
+	var (
+		materiales []*models.Materials
+		count      int64
+	)
+
+	query := c.db.WithContext(ctx).Model(&models.Materials{})
+	if search != "" {
+		query = query.Where("title ILIKE ?", "%"+search+"%")
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	query = c.preloadRelations(query)
+	if err := query.Offset(offset).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&materiales).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return materiales, int(count), nil
 }

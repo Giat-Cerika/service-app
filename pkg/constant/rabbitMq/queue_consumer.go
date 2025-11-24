@@ -3,27 +3,60 @@ package rabbitmq
 import (
 	"giat-cerika-service/configs"
 	"log"
+	"time"
 
 	"github.com/streadway/amqp"
 )
 
 func ConsumeQueueManual(queueName string, handler func(amqp.Delivery)) error {
-	_, err := configs.RabbitChannel.QueueDeclare(queueName, true, false, false, false, nil)
-	if err != nil {
-		log.Fatalf("Failed to declare queue %s: %v", queueName, err)
+	go func() {
+		for {
+			err := startConsumer(queueName, handler)
+			if err != nil {
+				log.Printf("❌ Consumer stopped for %s: %v. Reconnecting in 5s...", queueName, err)
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func startConsumer(queueName string, handler func(amqp.Delivery)) error {
+	conn := configs.GetRabbitConn()
+	if conn == nil {
+		return amqp.ErrClosed
 	}
 
-	msgs, err := configs.RabbitChannel.Consume(queueName, "", false, false, false, false, nil)
+	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
+
+	_, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
 	if err != nil {
 		return err
 	}
 
-	go func() {
-		for msg := range msgs {
-			handler(msg)
-		}
-	}()
+	msgs, err := ch.Consume(
+		queueName,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
 
 	log.Printf("🕐 Waiting for messages in queue %s ...", queueName)
-	return nil
+
+	for msg := range msgs {
+		handler(msg)
+	}
+
+	return amqp.ErrClosed
 }
