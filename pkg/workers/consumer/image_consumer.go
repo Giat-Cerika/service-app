@@ -25,6 +25,7 @@ type uploadable interface {
 	GetFolder() string
 	GetFilename() string
 	GetType() string
+	GetOldPhoto() string
 }
 
 // Consumer utama

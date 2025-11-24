@@ -98,13 +98,15 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req adminrequest.Regist
 
 	if req.Photo != nil {
 		if binner, err := fileAdminToBytes(req.Photo); err == nil && len(binner) > 0 {
-			go PublishImageAsync(payload.ImageUploadPayload{
+			pay := payload.ImageUploadPayload{
 				ID:        admin.ID,
 				Type:      "single",
 				FileBytes: binner,
 				Folder:    "giat_ceria/photo_admin",
 				Filename:  fmt.Sprintf("admin_%s_photo", admin.ID.String()),
-			})
+			}
+
+			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileAdminQueueName, pay)
 		}
 	}
 

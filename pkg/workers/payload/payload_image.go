@@ -8,7 +8,7 @@ type ImageUploadPayload struct {
 	FileBytes   []byte    `json:"file_bytes,omitempty"` // isi file binary
 	Folder      string    `json:"folder"`               // folder di Cloudinary
 	Filename    string    `json:"filename"`             // nama file upload
-	OldPhotoURL string
+	OldPhotoURL string    `json:"old_photo_url"`
 }
 
 // Implementasi interface uploadable

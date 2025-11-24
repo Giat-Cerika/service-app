@@ -141,13 +141,15 @@ func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.Re
 
 	if req.Photo != nil {
 		if binner, err := fileStudentToBytes(req.Photo); err == nil && len(binner) > 0 {
-			go PublishImageAsync(payload.ImageUploadPayload{
+			pay := payload.ImageUploadPayload{
 				ID:        newStudent.ID,
 				Type:      "single",
 				FileBytes: binner,
 				Folder:    "giat_ceria/photo_student",
 				Filename:  fmt.Sprintf("student_%s_photo", newStudent.ID.String()),
-			})
+			}
+
+			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileStudentQueueName, pay)
 		}
 	}
 
@@ -371,14 +373,14 @@ func (s *StudentServiceImpl) UpdatePhotoStudent(ctx context.Context, studentId u
 
 	if photo != nil {
 		if bin, err := fileStudentToBytes(photo); err == nil && len(bin) > 0 {
-			go PublishImageAsync(payload.ImageUploadPayload{
-				ID:          student.ID,
-				Type:        "single",
-				FileBytes:   bin,
-				Folder:      "giat_ceria/photo_student",
-				Filename:    fmt.Sprintf("student_%s_photo", studentId.String()),
-				OldPhotoURL: student.Photo,
-			})
+			task := payload.ImageUploadPayload{
+				ID:        student.ID,
+				Type:      "single",
+				FileBytes: bin,
+				Folder:    "giat_ceria/photo_student",
+				Filename:  fmt.Sprintf("student_%s_photo", studentId.String()),
+			}
+			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileStudentQueueName, task)
 		}
 	}
 
