@@ -19,6 +19,7 @@ func VideoRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 
 	e.GET("/all/latest", videoHandler.GetAllLatestVideo)
 	e.GET("/all/public", videoHandler.GetAllPublicVideo)
+	e.GET("/:videoId/public", videoHandler.GetByIdPublicVideo)
 
 	videoGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))
 	videoGroup.POST("/create", videoHandler.CreateVideo)

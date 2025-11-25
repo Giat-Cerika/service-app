@@ -22,4 +22,5 @@ type IMaterialRepository interface {
 
 	FindAllLatest(ctx context.Context) ([]*models.Materials, error)
 	FindAllPublic(ctx context.Context, limit, offset int, search string) ([]*models.Materials, int, error)
+	FindByIdPublic(ctx context.Context, materialId uuid.UUID) (*models.Materials, error)
 }

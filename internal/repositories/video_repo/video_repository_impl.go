@@ -103,3 +103,13 @@ func (c *VideoRepositoryImpl) FindAllPublic(ctx context.Context, limit int, offs
 
 	return videoes, int(count), nil
 }
+
+// FindByIdPublic implements IVideoRepository.
+func (c *VideoRepositoryImpl) FindByIdPublic(ctx context.Context, videoId uuid.UUID) (*models.Video, error) {
+	var video models.Video
+	if err := c.db.WithContext(ctx).First(&video, "id = ?", videoId).Error; err != nil {
+		return nil, err
+	}
+
+	return &video, nil
+}

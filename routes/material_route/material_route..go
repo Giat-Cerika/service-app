@@ -22,6 +22,7 @@ func MaterialRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 
 	e.GET("/all/latest", materialHandler.GetAllLatestMateriaL)
 	e.GET("/all/public", materialHandler.GetAllPublicMaterial)
+	e.GET("/:materialId/public", materialHandler.GetByIdPublicMaterial)
 
 	materialGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))
 	materialGroup.POST("/create", materialHandler.CreateMaterial)

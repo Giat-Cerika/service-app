@@ -173,3 +173,22 @@ func (ch *VideoHandler) GetAllPublicVideo(c echo.Context) error {
 
 	return response.PaginatedSuccess(c, http.StatusOK, "Get All Videoes Successfully", data, meta)
 }
+
+func (ch *VideoHandler) GetByIdPublicVideo(c echo.Context) error {
+	videoId, err := uuid.Parse(c.Param("videoId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	video, err := ch.videoService.GetByIdPublicVideo(c.Request().Context(), videoId)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get video")
+	}
+
+	res := videoresponse.ToVideoResponse(*video)
+
+	return response.Success(c, http.StatusOK, "Get Video Successfully", res)
+}

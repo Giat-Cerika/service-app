@@ -246,3 +246,26 @@ func (c *VideoServiceImpl) GetAllPublicVideo(ctx context.Context, page int, limi
 
 	return items, total, nil
 }
+
+// GetByIdPublicVideo implements IVideoService.
+func (c *VideoServiceImpl) GetByIdPublicVideo(ctx context.Context, videoId uuid.UUID) (*models.Video, error) {
+	cacheKey := fmt.Sprintf("video:public:%s", videoId)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var video models.Video
+		if json.Unmarshal([]byte(cached), &video) == nil {
+			return &video, nil
+		}
+	}
+
+	video, err := c.videoRepo.FindByIdPublic(ctx, videoId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "video not found", 404)
+		}
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get video", 500)
+	}
+
+	buf, _ := json.Marshal(video)
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+	return video, nil
+}

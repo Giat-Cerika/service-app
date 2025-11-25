@@ -173,3 +173,22 @@ func (ch *MaterialHandler) GetAllPublicMaterial(c echo.Context) error {
 
 	return response.PaginatedSuccess(c, http.StatusOK, "Get All Materiales Successfully", data, meta)
 }
+
+func (ch *MaterialHandler) GetByIdPublicMaterial(c echo.Context) error {
+	materialId, err := uuid.Parse(c.Param("materialId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	material, err := ch.materialService.GetByIdPublicMaterial(c.Request().Context(), materialId)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get material")
+	}
+
+	res := materialresponse.ToMaterialResponse(*material)
+
+	return response.Success(c, http.StatusOK, "Get Material Successfully", res)
+}

@@ -17,4 +17,5 @@ type IVideoRepository interface {
 
 	FindAllLatest(ctx context.Context) ([]*models.Video, error)
 	FindAllPublic(ctx context.Context, limit, offset int, search string) ([]*models.Video, int, error)
+	FindByIdPublic(ctx context.Context, videoId uuid.UUID) (*models.Video, error)
 }

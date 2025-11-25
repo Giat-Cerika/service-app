@@ -362,3 +362,26 @@ func (c *MaterialServiceImpl) GetAllPublicMaterial(ctx context.Context, page int
 
 	return items, total, nil
 }
+
+// GetByIdPublicMaterial implements IMaterialService.
+func (c *MaterialServiceImpl) GetByIdPublicMaterial(ctx context.Context, materialId uuid.UUID) (*models.Materials, error) {
+	cacheKey := fmt.Sprintf("material:public:%s", materialId)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var material models.Materials
+		if json.Unmarshal([]byte(cached), &material) == nil {
+			return &material, nil
+		}
+	}
+
+	material, err := c.materialRepo.FindByIdPublic(ctx, materialId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "material not found", 404)
+		}
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get material", 500)
+	}
+
+	buf, _ := json.Marshal(material)
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+	return material, nil
+}

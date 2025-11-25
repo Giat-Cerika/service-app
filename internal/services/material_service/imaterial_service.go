@@ -16,4 +16,5 @@ type IMaterialService interface {
 	DeleteMaterial(ctx context.Context, materialId uuid.UUID) error
 	GetAllLatestMaterial(ctx context.Context) ([]*models.Materials, error)
 	GetAllPublicMaterial(ctx context.Context, page, limit int, search string) ([]*models.Materials, int, error)
+	GetByIdPublicMaterial(ctx context.Context, materialId uuid.UUID) (*models.Materials, error)
 }

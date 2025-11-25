@@ -150,3 +150,13 @@ func (c *MaterialRepositoryImpl) FindAllPublic(ctx context.Context, limit int, o
 
 	return materiales, int(count), nil
 }
+
+// FindByIdPublic implements IMaterialRepository.
+func (c *MaterialRepositoryImpl) FindByIdPublic(ctx context.Context, materialId uuid.UUID) (*models.Materials, error) {
+	var material models.Materials
+	if err := c.preloadRelations(c.db.WithContext(ctx)).First(&material, "id = ?", materialId).Error; err != nil {
+		return nil, err
+	}
+
+	return &material, nil
+}
