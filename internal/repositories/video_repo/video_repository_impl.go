@@ -40,7 +40,7 @@ func (c *VideoRepositoryImpl) FindAll(ctx context.Context, limit int, offset int
 
 	query := c.db.WithContext(ctx).Model(&models.Video{})
 	if search != "" {
-		query = query.Where("name_video ILIKE ?", "%"+search+"%")
+		query = query.Where("title ILIKE ?", "%"+search+"%")
 	}
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
