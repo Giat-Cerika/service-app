@@ -29,4 +29,6 @@ func StudentRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 	studentGroup.POST("/logout", studentHandler.Logout, middlewares.JWTMiddleware(rdb))
 	studentGroup.PUT("/update-profile", studentHandler.UpdateProfileStudent)
 	studentGroup.PUT("/edit-photo", studentHandler.EditPhotoStudent)
+	studentGroup.POST("/tooth-brush", studentHandler.CreateToothBrush)
+	studentGroup.GET("/history-tooth-brush", studentHandler.GetHistoryToothBrush)
 }

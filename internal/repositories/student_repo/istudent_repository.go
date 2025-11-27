@@ -21,4 +21,7 @@ type IStudentRepository interface {
 	UpdateNewPassword(ctx context.Context, studentID uuid.UUID, password string) error
 
 	UpdateProfile(ctx context.Context, studentId uuid.UUID, data *models.User) error
+
+	CreateTootBrush(ctx context.Context, studentId uuid.UUID, data *models.ToootBrushLog) error
+	GetHistoryTootBrush(ctx context.Context, studentId uuid.UUID, typeTime string, limit int, offset int) ([]*models.ToootBrushLog, int, error)
 }

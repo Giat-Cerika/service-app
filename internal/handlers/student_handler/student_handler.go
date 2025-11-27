@@ -3,6 +3,7 @@ package studenthandler
 import (
 	studentrequest "giat-cerika-service/internal/dto/request/student_request"
 	studentresponse "giat-cerika-service/internal/dto/response/student_response"
+	toothbrushresponse "giat-cerika-service/internal/dto/response/toothbrush_response"
 	studentservice "giat-cerika-service/internal/services/student_service"
 	errorresponse "giat-cerika-service/pkg/constant/error_response"
 	"giat-cerika-service/pkg/constant/response"
@@ -242,4 +243,58 @@ func (s *StudentHandler) EditPhotoStudent(c echo.Context) error {
 	}
 
 	return response.Success(c, http.StatusOK, "edit photo successfully", nil)
+}
+
+func (s *StudentHandler) CreateToothBrush(c echo.Context) error {
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+	}
+
+	studentId := claims.UserID
+
+	var req studentrequest.CreateTootBrushRequest
+	if err := c.Bind(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	// LEMPAR KE SERVICE
+	err = s.studentService.CreateTootBrushStudent(c.Request().Context(), uuid.MustParse(studentId), req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to create toothbrush log")
+	}
+
+	return response.Success(c, http.StatusCreated, "Tooth brush log created successfully", nil)
+}
+
+func (s *StudentHandler) GetHistoryToothBrush(c echo.Context) error {
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+	}
+
+	studentId := claims.UserID
+
+	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
+	timeType := c.QueryParam("time_type")
+
+	histories, total, err := s.studentService.GetHitoryToothBrush(c.Request().Context(), uuid.MustParse(studentId), timeType, pageInt, limitInt)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get history tooth brush")
+	}
+
+	meta := utils.BuildPaginationMeta(c, pageInt, limitInt, total)
+
+	data := make([]toothbrushresponse.ToothBrushResponse, len(histories))
+	for i, h := range histories {
+		data[i] = toothbrushresponse.ToToothBrushResponse(*h)
+	}
+
+	return response.PaginatedSuccess(c, http.StatusOK, "Get Tooth Brush History Successfully", data, meta)
 }

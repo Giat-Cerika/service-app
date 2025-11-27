@@ -21,6 +21,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.MaterialImages{},
 		&models.Questionnaire{},
 		&models.Video{},
+		&models.ToootBrushLog{},
 	)
 }
 

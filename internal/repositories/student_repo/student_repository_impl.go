@@ -115,3 +115,39 @@ func (s *StudentRepositoryImpl) UpdateProfile(ctx context.Context, studentId uui
 		Where("id = ?", studentId).
 		Updates(updateData).Error
 }
+
+// CreateTootBrush implements IStudentRepository.
+func (s *StudentRepositoryImpl) CreateTootBrush(ctx context.Context, studentId uuid.UUID, data *models.ToootBrushLog) error {
+	return s.db.WithContext(ctx).Create(data).Error
+}
+
+// GetHistoryTootBrush implements IStudentRepository.
+func (s *StudentRepositoryImpl) GetHistoryTootBrush(ctx context.Context, studentId uuid.UUID, typeTime string, limit int, offset int) ([]*models.ToootBrushLog, int, error) {
+	var (
+		logs  []*models.ToootBrushLog
+		count int64
+	)
+
+	query := s.db.WithContext(ctx).Model(&models.ToootBrushLog{}).
+		Where("user_id = ?", studentId)
+
+	if typeTime != "" {
+		query = query.Where("time_type = ?", typeTime)
+	}
+
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := query.
+		Preload("User").
+		Preload("User.Role").
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&logs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return logs, int(count), nil
+}

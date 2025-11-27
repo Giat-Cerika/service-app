@@ -56,6 +56,13 @@ var PublishImageAsync = func(p payload.ImageUploadPayload) {
 	}()
 }
 
+func (c *StudentServiceImpl) invalidateCacheToothBrush(ctx context.Context) {
+	iter := c.rdb.Scan(ctx, 0, "toothbrush:*", 0).Iterator()
+	for iter.Next(ctx) {
+		c.rdb.Del(ctx, iter.Val())
+	}
+}
+
 // Register implements IStudentService.
 func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.RegisterStudentRequest) error {
 	uniqueUsername, err := s.studenRepo.FindUsernameUnique(ctx, req.Username)
@@ -385,4 +392,80 @@ func (s *StudentServiceImpl) UpdatePhotoStudent(ctx context.Context, studentId u
 	}
 
 	return nil
+}
+
+// CreateTootBrushStudent implements IStudentService.
+func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, studentId uuid.UUID, req studentrequest.CreateTootBrushRequest) error {
+	if studentId == uuid.Nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "student id is required", 400)
+	}
+
+	if strings.TrimSpace(req.TimeType) == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "type time is required", 400)
+	}
+
+	if req.TimeType != strings.ToUpper("morning") && req.TimeType != strings.ToUpper("night") {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "type time only 'morning' or 'night'", 400)
+	}
+
+	student, err := s.studenRepo.FindByStudentID(ctx, studentId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "student not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
+	}
+
+	newLog := &models.ToootBrushLog{
+		ID:        uuid.New(),
+		UserID:    student.ID,
+		TimeType:  strings.ToUpper(req.TimeType),
+		LogDate:   time.Now().Truncate(24 * time.Hour),
+		LogTime:   time.Now(),
+		CreatedAt: time.Now(),
+	}
+
+	err = s.studenRepo.CreateTootBrush(ctx, student.ID, newLog)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create log", 500)
+	}
+
+	s.invalidateCacheToothBrush(ctx)
+
+	return nil
+
+}
+
+// GetHitoryToothBrush implements IStudentService.
+func (s *StudentServiceImpl) GetHitoryToothBrush(ctx context.Context, studentId uuid.UUID, typeTime string, page int, limit int) ([]*models.ToootBrushLog, int, error) {
+	cacheKey := fmt.Sprintf("toothbrush:%s:type:%s:page:%d:limit:%d", studentId, typeTime, page, limit)
+
+	// GET FROM CACHE
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var result struct {
+			Data  []*models.ToootBrushLog `json:"data"`
+			Total int                     `json:"total"`
+		}
+		if json.Unmarshal([]byte(cached), &result) == nil {
+			return result.Data, result.Total, nil
+		}
+	}
+
+	offset := (page - 1) * limit
+	items, total, err := s.studenRepo.GetHistoryTootBrush(ctx, studentId, typeTime, limit, offset)
+	if err != nil {
+		return nil, 0, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get history toothbrush", 500)
+	}
+
+	if len(items) == 0 {
+		items = []*models.ToootBrushLog{}
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data":  items,
+		"total": total,
+	})
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return items, total, nil
 }

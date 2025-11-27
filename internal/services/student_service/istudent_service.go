@@ -19,4 +19,7 @@ type IStudentService interface {
 	UpdateNewPasswordStudent(ctx context.Context, studentID uuid.UUID, req studentrequest.UpdatePassword) error
 	UpdateProfileStudent(ctx context.Context, studentId uuid.UUID, req studentrequest.UpdateProfileRequest) error
 	UpdatePhotoStudent(ctx context.Context, studentId uuid.UUID, photo *multipart.FileHeader) error
+
+	CreateTootBrushStudent(ctx context.Context, studentId uuid.UUID, req studentrequest.CreateTootBrushRequest) error
+	GetHitoryToothBrush(ctx context.Context, studentId uuid.UUID, typeTime string, page int, limit int) ([]*models.ToootBrushLog, int, error)
 }

@@ -43,3 +43,7 @@ type UpdateProfileRequest struct {
 	Age         int       `form:"age" json:"age"`
 	ClassID     uuid.UUID `form:"class_id" json:"class_id"`
 }
+
+type CreateTootBrushRequest struct {
+	TimeType string `form:"time_type" json:"time_type"`
+}
