@@ -23,5 +23,6 @@ type IStudentRepository interface {
 	UpdateProfile(ctx context.Context, studentId uuid.UUID, data *models.User) error
 
 	CreateTootBrush(ctx context.Context, studentId uuid.UUID, data *models.ToootBrushLog) error
+	CheckTootBrushExists(ctx context.Context, studentId uuid.UUID, typeTime string, logDate time.Time) (bool, error)
 	GetHistoryTootBrush(ctx context.Context, studentId uuid.UUID, typeTime string, limit int, offset int) ([]*models.ToootBrushLog, int, error)
 }

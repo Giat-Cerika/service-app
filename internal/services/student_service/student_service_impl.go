@@ -404,8 +404,35 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "type time is required", 400)
 	}
 
-	if req.TimeType != strings.ToUpper("morning") && req.TimeType != strings.ToUpper("night") {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "type time only 'morning' or 'night'", 400)
+	if req.TimeType != strings.ToUpper("MORNING") && req.TimeType != strings.ToUpper("NIGHT") {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "type time only 'MORNING' or 'NIGHT'", 400)
+	}
+
+	// time range validation
+	now := time.Now()
+	hour := now.Hour()
+
+	if strings.ToUpper(req.TimeType) == "MORNING" {
+		if hour < 5 || hour > 7 {
+			return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "absen pagi hanya bisa antara jam 05:00 sampai 07:00", 400)
+		}
+	}
+
+	if strings.ToUpper(req.TimeType) == "NIGHT" {
+		if hour < 17 || hour > 19 {
+			return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "absen malam hanya bisa antara jam 17:00 sampai 19:00", 400)
+		}
+	}
+
+	// check already exists log for same day & same type
+	logDate := now.Truncate(24 * time.Hour)
+	exists, err := s.studenRepo.CheckTootBrushExists(ctx, studentId, strings.ToUpper(req.TimeType), logDate)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to check log", 500)
+	}
+
+	if exists {
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "Anda sudah absen untuk sesi ini hari ini", 409)
 	}
 
 	student, err := s.studenRepo.FindByStudentID(ctx, studentId)
@@ -420,20 +447,17 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		ID:        uuid.New(),
 		UserID:    student.ID,
 		TimeType:  strings.ToUpper(req.TimeType),
-		LogDate:   time.Now().Truncate(24 * time.Hour),
-		LogTime:   time.Now(),
-		CreatedAt: time.Now(),
+		LogDate:   logDate,
+		LogTime:   now,
+		CreatedAt: now,
 	}
 
-	err = s.studenRepo.CreateTootBrush(ctx, student.ID, newLog)
-	if err != nil {
+	if err := s.studenRepo.CreateTootBrush(ctx, student.ID, newLog); err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create log", 500)
 	}
 
 	s.invalidateCacheToothBrush(ctx)
-
 	return nil
-
 }
 
 // GetHitoryToothBrush implements IStudentService.

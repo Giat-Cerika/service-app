@@ -121,6 +121,17 @@ func (s *StudentRepositoryImpl) CreateTootBrush(ctx context.Context, studentId u
 	return s.db.WithContext(ctx).Create(data).Error
 }
 
+// CheckTootBrushExists implements IStudentRepository.
+func (s *StudentRepositoryImpl) CheckTootBrushExists(ctx context.Context, studentId uuid.UUID, typeTime string, logDate time.Time) (bool, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&models.ToootBrushLog{}).
+		Where("user_id = ? AND time_type = ? AND log_date = ?", studentId, typeTime, logDate).
+		Count(&count).Error
+
+	return count > 0, err
+
+}
+
 // GetHistoryTootBrush implements IStudentRepository.
 func (s *StudentRepositoryImpl) GetHistoryTootBrush(ctx context.Context, studentId uuid.UUID, typeTime string, limit int, offset int) ([]*models.ToootBrushLog, int, error) {
 	var (
