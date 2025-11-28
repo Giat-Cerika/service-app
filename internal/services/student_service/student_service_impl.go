@@ -409,7 +409,8 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 	}
 
 	// time range validation
-	now := time.Now()
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	now := time.Now().In(loc)
 	hour := now.Hour()
 
 	if strings.ToUpper(req.TimeType) == "MORNING" {
