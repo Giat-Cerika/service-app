@@ -409,9 +409,19 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 	}
 
 	// time range validation
-	loc, _ := time.LoadLocation("Asia/Jakarta")
-	now := time.Now().In(loc)
-	hour := now.Hour()
+	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
+	nowUTC := time.Now().UTC()
+	nowJakarta := nowUTC.In(locJakarta)
+	hour := nowJakarta.Hour()
+
+	// Get correct log date
+	logDate := time.Date(
+		nowJakarta.Year(),
+		nowJakarta.Month(),
+		nowJakarta.Day(),
+		0, 0, 0, 0,
+		locJakarta,
+	)
 
 	if strings.ToUpper(req.TimeType) == "MORNING" {
 		if hour < 5 || hour > 7 {
@@ -425,8 +435,6 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		}
 	}
 
-	// check already exists log for same day & same type
-	logDate := now.Truncate(24 * time.Hour)
 	exists, err := s.studenRepo.CheckTootBrushExists(ctx, studentId, strings.ToUpper(req.TimeType), logDate)
 	if err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to check log", 500)
@@ -449,8 +457,8 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		UserID:    student.ID,
 		TimeType:  strings.ToUpper(req.TimeType),
 		LogDate:   logDate,
-		LogTime:   now,
-		CreatedAt: now,
+		LogTime:   nowJakarta,
+		CreatedAt: nowJakarta,
 	}
 
 	if err := s.studenRepo.CreateTootBrush(ctx, student.ID, newLog); err != nil {
