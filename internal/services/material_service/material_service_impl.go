@@ -218,6 +218,7 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 		material.Description = req.Description
 	}
 
+	// cover handling (sama seperti sebelumnya)
 	if req.Cover != nil {
 		if material.Cover != "" {
 			publicID := utils.ExtractPublicIDFromCloudinaryURL(material.Cover)
@@ -226,7 +227,8 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 			}
 		}
 		if bin, err := fileMateriToBytes(req.Cover); err == nil && len(bin) > 0 {
-			go PublishImageAsync(payload.ImageUploadPayload{
+			// PublishImageAsync sudah membuat goroutine sendiri => panggil langsung
+			PublishImageAsync(payload.ImageUploadPayload{
 				ID:        material.ID,
 				Type:      "single",
 				FileBytes: bin,
@@ -238,25 +240,40 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 
 	if len(req.Gallery) > 0 {
 		if req.ReplaceGallery {
-			_ = c.materialRepo.DeleteGalleryByMateriId(ctx, material.ID)
+			// Hapus gallery di DB dulu, tangani error
+			if err := c.materialRepo.DeleteGalleryByMateriId(ctx, material.ID); err != nil {
+				// kalau gagal delete, beri error agar tidak inconsistent
+				return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete existing gallery", 500)
+			}
+
+			// Hapus file di cloudinary berdasarkan data yang ada di memory (material.MaterialImages)
+			// gunakan copy untuk safety
 			for _, gi := range material.MaterialImages {
 				if gi.Image.ImagePath != "" {
 					publicID := utils.ExtractPublicIDFromCloudinaryURL(gi.Image.ImagePath)
 					if publicID != "" {
-						_ = c.cld.DestroyImage(ctx, publicID)
+						_ = c.cld.DestroyImage(ctx, publicID) // gagal destroy tidak fatal
 					}
 				}
 			}
+
+			// Sangat penting: kosongkan slice agar state in-memory sesuai dengan DB
+			material.MaterialImages = []models.MaterialImages{}
 		}
 
+		// upload file baru (buat nama file lebih unik untuk menghindari collision)
 		for i, g := range req.Gallery {
+			if g == nil {
+				continue
+			}
 			if bin, err := fileMateriToBytes(g); err == nil && len(bin) > 0 {
 				go PublishImageAsync(payload.ImageUploadPayload{
 					ID:        material.ID,
 					Type:      "many",
 					FileBytes: bin,
 					Folder:    "giat_ceria/materials",
-					Filename:  fmt.Sprintf("materi_%s_gallery_%d", material.ID, i+1),
+					// gunakan String() + index + timestamp supaya unik
+					Filename: fmt.Sprintf("materi_%s_gallery_%d_%d", material.ID.String(), i+1, time.Now().UnixNano()),
 				})
 			}
 		}
