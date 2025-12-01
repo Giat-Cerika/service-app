@@ -410,18 +410,11 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 
 	// time range validation
 	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
-	nowUTC := time.Now().UTC()
-	nowJakarta := nowUTC.In(locJakarta)
+	nowJakarta := time.Now().In(locJakarta)
 	hour := nowJakarta.Hour()
 
 	// Get correct log date
-	logDate := time.Date(
-		nowJakarta.Year(),
-		nowJakarta.Month(),
-		nowJakarta.Day(),
-		0, 0, 0, 0,
-		locJakarta,
-	)
+	logDate := nowJakarta.Truncate(24 * time.Hour)
 
 	if strings.ToUpper(req.TimeType) == "MORNING" {
 		if hour < 5 || hour > 7 {
