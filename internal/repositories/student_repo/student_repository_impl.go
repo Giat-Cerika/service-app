@@ -122,14 +122,21 @@ func (s *StudentRepositoryImpl) CreateTootBrush(ctx context.Context, studentId u
 }
 
 // CheckTootBrushExists implements IStudentRepository.
-func (s *StudentRepositoryImpl) CheckTootBrushExists(ctx context.Context, studentId uuid.UUID, typeTime string, logDate time.Time) (bool, error) {
+func (r *StudentRepositoryImpl) CheckTootBrushExists(ctx context.Context, studentId uuid.UUID, timeType string, logDate time.Time) (bool, error) {
 	var count int64
-	err := s.db.WithContext(ctx).Model(&models.ToootBrushLog{}).
-		Where("user_id = ? AND time_type = ? AND log_date = ?", studentId, typeTime, logDate).
+
+	// Pastikan logDate sudah dalam UTC
+	// Query dengan DATE() function yang consistent
+	formattedDate := logDate.Format("2006-01-02")
+
+	err := r.db.WithContext(ctx).
+		Model(&models.ToootBrushLog{}).
+		Where("user_id = ?", studentId).
+		Where("time_type = ?", timeType).
+		Where("DATE(log_date AT TIME ZONE 'UTC') = DATE(? AT TIME ZONE 'UTC')", formattedDate).
 		Count(&count).Error
 
 	return count > 0, err
-
 }
 
 // GetHistoryTootBrush implements IStudentRepository.
