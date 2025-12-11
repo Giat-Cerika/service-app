@@ -24,4 +24,5 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasources.Cl
 	videoroute.VideoRoutes(v1.Group("/video"), db, rdb)
 	materialroute.MaterialRoute(v1.Group("/material"), db, rdb, cldSvc)
 	quizroute.QuizTypeRoute(v1.Group("/quizType"), db, rdb)
+	quizroute.QuizRoute(v1.Group("/quiz"), db, rdb)
 }

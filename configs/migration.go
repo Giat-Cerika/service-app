@@ -22,6 +22,9 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Video{},
 		&models.ToootBrushLog{},
 		&models.QuizType{},
+		&models.Quiz{},
+		&models.Question{},
+		&models.Answer{},
 	)
 }
 
