@@ -4,10 +4,11 @@ import (
 	datasources "giat-cerika-service/internal/dataSources"
 	adminroute "giat-cerika-service/routes/admin_route"
 	classroute "giat-cerika-service/routes/class_route"
+	materialroute "giat-cerika-service/routes/material_route"
+	quizroute "giat-cerika-service/routes/quiz_route"
 	roleroute "giat-cerika-service/routes/role_route"
 	studentroute "giat-cerika-service/routes/student_route"
 	videoroute "giat-cerika-service/routes/video_route"
-	materialroute "giat-cerika-service/routes/material_route"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -22,4 +23,5 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasources.Cl
 	studentroute.StudentRoutes(v1.Group("/student"), db, rdb, cldSvc)
 	videoroute.VideoRoutes(v1.Group("/video"), db, rdb)
 	materialroute.MaterialRoute(v1.Group("/material"), db, rdb, cldSvc)
+	quizroute.QuizTypeRoute(v1.Group("/quizType"), db, rdb)
 }
