@@ -8,7 +8,7 @@ import (
 
 type Question struct {
 	ID            uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
-	QuizID        string    `gorm:"type:varchar(255);index" json:"quiz_id"`
+	QuizID        uuid.UUID `gorm:"type:uuid;index" json:"quiz_id"`
 	Quiz          Quiz      `gorm:"foreignKey:QuizID"`
 	QuestionText  string    `gorm:"type:text" json:"question_text"`
 	QuestionImage string    `gorm:"type:varchar(255); null" json:"question_image"`
