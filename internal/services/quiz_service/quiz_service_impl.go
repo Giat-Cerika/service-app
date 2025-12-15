@@ -199,12 +199,15 @@ func (q *QuizServiceImpl) DeleteQuiz(ctx context.Context, quizId uuid.UUID) erro
 
 // UpdateStatusQuiz implements IQuizService.
 func (q *QuizServiceImpl) UpdateStatusQuiz(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateStatusQuizRequest) error {
-	_, err := q.quizRepo.FindById(ctx, quizId)
+	quiz, err := q.quizRepo.FindById(ctx, quizId)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "quiz not found", 404)
 		}
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz", 500)
+	}
+	if quiz.AmountQuestions == 0 {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "cannot activate quiz with zero questions", 400)
 	}
 	err = q.quizRepo.UpdateStatus(ctx, quizId, req.Status)
 	if err != nil {

@@ -66,3 +66,13 @@ func (q *QuizRepositoryImpl) Delete(ctx context.Context, quizId uuid.UUID) error
 func (q *QuizRepositoryImpl) UpdateStatus(ctx context.Context, quizId uuid.UUID, status int) error {
 	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ?", quizId).Update("status", status).Error
 }
+
+// IncreamentAmountQuestion implements IQuizRepository.
+func (q *QuizRepositoryImpl) IncreamentAmountQuestion(ctx context.Context, quizId uuid.UUID) error {
+	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ?", quizId).UpdateColumn("amount_questions", gorm.Expr("amount_questions + ?", 1)).Error
+}
+
+// DecreaseAmountQuestion implements [IQuizRepository].
+func (q *QuizRepositoryImpl) DecreaseAmountQuestion(ctx context.Context, quizId uuid.UUID) error {
+	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ? AND amount_questions > 0", quizId).UpdateColumn("amount_questions", gorm.Expr("amount_questions - ?", 1)).Error
+}

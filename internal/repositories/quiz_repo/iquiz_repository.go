@@ -14,4 +14,6 @@ type IQuizRepository interface {
 	Update(ctx context.Context, quizId uuid.UUID, data *models.Quiz) error
 	Delete(ctx context.Context, quizId uuid.UUID) error
 	UpdateStatus(ctx context.Context, quizId uuid.UUID, status int) error
+	IncreamentAmountQuestion(ctx context.Context, quizId uuid.UUID) error
+	DecreaseAmountQuestion(ctx context.Context, quizId uuid.UUID) error
 }

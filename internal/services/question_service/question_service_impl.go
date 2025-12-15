@@ -62,6 +62,18 @@ func (q *QuestionServiceImpl) invalidateCacheQuestion(ctx context.Context) {
 	}
 }
 
+func (q *QuestionServiceImpl) invalidateCacheQuiz(ctx context.Context) {
+	iter := q.rdb.Scan(ctx, 0, "quizzes:*", 0).Iterator()
+	for iter.Next(ctx) {
+		q.rdb.Del(ctx, iter.Val())
+	}
+
+	iterID := q.rdb.Scan(ctx, 0, "quiz:*", 0).Iterator()
+	for iterID.Next(ctx) {
+		q.rdb.Del(ctx, iterID.Val())
+	}
+}
+
 func fileQuestionToBytes(fh *multipart.FileHeader) ([]byte, error) {
 	file, err := fh.Open()
 	if err != nil {
@@ -110,6 +122,13 @@ func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionre
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create question", 500)
 	}
 
+	go func(quizId uuid.UUID) {
+		ctxBg := context.Background()
+		if err := q.quizRepo.IncreamentAmountQuestion(ctxBg, quizId); err != nil {
+			fmt.Println("failed to increament amount question", err)
+		}
+	}(question.QuizID)
+
 	if req.QuestionImage != nil {
 		if bin, err := fileQuestionToBytes(req.QuestionImage); err == nil && len(bin) > 0 {
 			go PublishImageQuestion(payload.ImageUploadPayload{
@@ -135,6 +154,7 @@ func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionre
 	}
 
 	q.invalidateCacheQuestion(ctx)
+	q.invalidateCacheQuiz(ctx)
 	return nil
 }
 
@@ -287,6 +307,13 @@ func (q *QuestionServiceImpl) DeleteQuestion(ctx context.Context, questionId uui
 	if err := q.questionRepo.DeleteQuestion(ctx, questionId); err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete question", 500)
 	}
+	go func(quizId uuid.UUID) {
+		ctxBg := context.Background()
+		if err := q.quizRepo.DecreaseAmountQuestion(ctxBg, quizId); err != nil {
+			fmt.Println("failed to decrease amount question", err)
+		}
+	}(question.QuizID)
 	q.invalidateCacheQuestion(ctx)
+	q.invalidateCacheQuiz(ctx)
 	return nil
 }
