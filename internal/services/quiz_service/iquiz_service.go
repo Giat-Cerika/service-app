@@ -15,4 +15,5 @@ type IQuizService interface {
 	UpdateQuiz(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateQuizRequest) error
 	DeleteQuiz(ctx context.Context, quizId uuid.UUID) error
 	UpdateStatusQuiz(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateStatusQuizRequest) error
+	UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateQuestionOrderModeRequest) error
 }

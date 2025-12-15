@@ -216,3 +216,20 @@ func (q *QuizServiceImpl) UpdateStatusQuiz(ctx context.Context, quizId uuid.UUID
 	q.invalidateCacheQuiz(ctx)
 	return nil
 }
+
+// UpdateQuestionOrderMode implements [IQuizService].
+func (q *QuizServiceImpl) UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateQuestionOrderModeRequest) error {
+	quiz, err := q.quizRepo.FindById(ctx, quizId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "quiz not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz", 500)
+	}
+	err = q.quizRepo.UpdateQuestionOrderMode(ctx, quiz.ID, req.QuestionOrderMode)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to update question order mode", 500)
+	}
+	q.invalidateCacheQuiz(ctx)
+	return nil
+}

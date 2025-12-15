@@ -76,3 +76,8 @@ func (q *QuizRepositoryImpl) IncreamentAmountQuestion(ctx context.Context, quizI
 func (q *QuizRepositoryImpl) DecreaseAmountQuestion(ctx context.Context, quizId uuid.UUID) error {
 	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ? AND amount_questions > 0", quizId).UpdateColumn("amount_questions", gorm.Expr("amount_questions - ?", 1)).Error
 }
+
+// UpdateQuestionOrderMode implements [IQuizRepository].
+func (q *QuizRepositoryImpl) UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, mode string) error {
+	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ?", quizId).Update("question_order_mode", mode).Error
+}

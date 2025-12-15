@@ -125,3 +125,23 @@ func (q *QuizHandler) UpdateStatusQuiz(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Quiz Status Updated Successfully", nil)
 }
+
+func (q *QuizHandler) UpdateQuestionOrderMode(c echo.Context) error {
+	quizId, err := uuid.Parse(c.Param("quizId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+	var req quizrequest.UpdateQuestionOrderModeRequest
+	if err := c.Bind(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+	err = q.quizService.UpdateQuestionOrderMode(c.Request().Context(), quizId, req)
+	if err != nil {
+		if cutomErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, cutomErr.Status, cutomErr.Msg, cutomErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to update question order mode", err.Error())
+	}
+
+	return response.Success(c, http.StatusOK, "Quiz Question Order Mode Updated Successfully", nil)
+}

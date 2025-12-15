@@ -25,5 +25,5 @@ func QuizRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	quizGroup.PUT("/:quizId/edit", quizHandler.UpdateQuiz)
 	quizGroup.DELETE("/:quizId/delete", quizHandler.DeleteQuiz)
 	quizGroup.PUT("/:quizId/update-status", quizHandler.UpdateStatusQuiz)
-
+	quizGroup.PUT("/:quizId/update-question-order-mode", quizHandler.UpdateQuestionOrderMode)
 }

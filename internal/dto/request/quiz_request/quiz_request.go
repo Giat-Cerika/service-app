@@ -27,3 +27,7 @@ type UpdateQuizRequest struct {
 type UpdateStatusQuizRequest struct {
 	Status int `form:"status" json:"status"`
 }
+
+type UpdateQuestionOrderModeRequest struct {
+	QuestionOrderMode string `form:"question_order_mode" json:"question_order_mode"`
+}
