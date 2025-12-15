@@ -7,6 +7,7 @@ import (
 	materialroute "giat-cerika-service/routes/material_route"
 	questionroute "giat-cerika-service/routes/question_route"
 	quizroute "giat-cerika-service/routes/quiz_route"
+	quizsessionroute "giat-cerika-service/routes/quiz_session_route"
 	roleroute "giat-cerika-service/routes/role_route"
 	studentroute "giat-cerika-service/routes/student_route"
 	videoroute "giat-cerika-service/routes/video_route"
@@ -27,4 +28,5 @@ func Routes(e *echo.Echo, db *gorm.DB, rdb *redis.Client, cldSvc *datasources.Cl
 	quizroute.QuizTypeRoute(v1.Group("/quizType"), db, rdb)
 	quizroute.QuizRoute(v1.Group("/quiz"), db, rdb)
 	questionroute.QuestionRoute(v1.Group("/question"), db, rdb, cldSvc)
+	quizsessionroute.QuizSessionRoute(v1.Group("/quiz-session"), db, rdb)
 }

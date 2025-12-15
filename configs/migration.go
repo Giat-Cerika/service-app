@@ -25,6 +25,11 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Quiz{},
 		&models.Question{},
 		&models.Answer{},
+		&models.QuizSession{},
+		&models.Response{},
+		&models.QuizHistory{},
+		&models.QuestionHistory{},
+		&models.AnswerHistory{},
 	)
 }
 
