@@ -64,9 +64,13 @@ func (qh *QuestionHandler) CreateQuestion(c echo.Context) error {
 }
 
 func (qh *QuestionHandler) GetAllQuestion(c echo.Context) error {
+	quizId, err := uuid.Parse(c.Param("quizId"))
+	if err != nil {
+		return response.Error(c, 400, "Bad request", err.Error())
+	}
 	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
 	search := c.QueryParam("search")
-	questions, total, err := qh.questionService.FindAllQuestions(c.Request().Context(), pageInt, limitInt, search)
+	questions, total, err := qh.questionService.FindAllQuestions(c.Request().Context(), quizId, pageInt, limitInt, search)
 	if err != nil {
 		if customErr, ok := errorresponse.AsCustomErr(err); ok {
 			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())

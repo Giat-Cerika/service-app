@@ -46,7 +46,7 @@ func (q *QuizRepositoryImpl) FindAll(ctx context.Context, limit, offset int, sea
 // FindById implements IQuizRepository.
 func (q *QuizRepositoryImpl) FindById(ctx context.Context, quizId uuid.UUID) (*models.Quiz, error) {
 	var quiz models.Quiz
-	if err := q.db.WithContext(ctx).Preload("QuizType").First(&quiz, "id = ?", quizId).Error; err != nil {
+	if err := q.db.WithContext(ctx).Preload("QuizType").Preload("Questions.Answers").First(&quiz, "id = ?", quizId).Error; err != nil {
 		return nil, err
 	}
 	return &quiz, nil
@@ -80,4 +80,9 @@ func (q *QuizRepositoryImpl) DecreaseAmountQuestion(ctx context.Context, quizId 
 // UpdateQuestionOrderMode implements [IQuizRepository].
 func (q *QuizRepositoryImpl) UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, mode string) error {
 	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ?", quizId).Update("question_order_mode", mode).Error
+}
+
+// IncreamentAmountAssigned implements [IQuizRepository].
+func (q *QuizRepositoryImpl) IncreamentAmountAssigned(ctx context.Context, quizId uuid.UUID) error {
+	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ?", quizId).UpdateColumn("amount_assigned", gorm.Expr("amount_assigned + ?", 1)).Error
 }

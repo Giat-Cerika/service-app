@@ -24,7 +24,7 @@ func QuestionRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 
 	questionGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))
 	questionGroup.POST("/create", questionHandler.CreateQuestion)
-	questionGroup.GET("/all", questionHandler.GetAllQuestion)
+	questionGroup.GET("/all/:quizId", questionHandler.GetAllQuestion)
 	questionGroup.GET("/:questionId", questionHandler.GetByIdQuestion)
 	questionGroup.PUT("/:questionId/edit", questionHandler.UpdateQuestion)
 	questionGroup.DELETE("/:questionId/delete", questionHandler.DeleteQuestion)

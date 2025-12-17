@@ -29,25 +29,42 @@ func (q *QuestionRepositoryImpl) CreateQuestion(ctx context.Context, data *model
 }
 
 // FindAllQuestions implements IQuestionRepository.
-func (q *QuestionRepositoryImpl) FindAllQuestions(ctx context.Context, limit int, offset int, search string) ([]*models.Question, int, error) {
+func (q *QuestionRepositoryImpl) FindAllQuestions(
+	ctx context.Context,
+	quizId uuid.UUID,
+	limit int,
+	offset int,
+	search string,
+) ([]*models.Question, int, error) {
+
 	var (
 		questions []*models.Question
 		count     int64
 	)
-	query := q.db.WithContext(ctx).Model(&models.Question{})
+
+	query := q.db.WithContext(ctx).
+		Model(&models.Question{}).
+		Where("quiz_id = ?", quizId)
+
 	if search != "" {
 		query = query.Where("question_text ILIKE ?", "%"+search+"%")
 	}
+
+	// COUNT harus pakai filter yang sama
 	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, err
 	}
+
 	query = q.preloadRelations(query)
-	if err := query.Offset(offset).
-		Limit(limit).
+
+	if err := query.
 		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&questions).Error; err != nil {
 		return nil, 0, err
 	}
+
 	return questions, int(count), nil
 }
 

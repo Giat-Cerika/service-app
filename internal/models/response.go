@@ -12,8 +12,7 @@ type Response struct {
 	QuizSession   QuizSession `gorm:"foreignKey:QuizSessionID;constraint:OnDelete:CASCADE;"`
 	QuestionID    uuid.UUID   `gorm:"type:uuid;index" json:"question_id"`
 	Question      Question    `gorm:"foreignKey:QuestionID;constraint:OnDelete:CASCADE;"`
-	AnswerID      uuid.UUID   `gorm:"type:uuid;index" json:"answer_id"`
-	Answer        Answer      `gorm:"foreignKey:AnswerID;constraint:OnDelete:CASCADE;"`
+	AnswerID      *uuid.UUID  `gorm:"type:uuid; null" json:"answer_id"`
 	ScoreEarned   int         `gorm:"type:int" json:"score_earned"`
 	CreatedAt     time.Time   `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt     time.Time   `gorm:"autoUpdateTime" json:"updated_at"`

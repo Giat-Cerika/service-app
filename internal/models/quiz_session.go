@@ -23,8 +23,8 @@ type QuizSession struct {
 	Score       int               `gorm:"type:int" json:"score"`
 	MaxScore    int               `gorm:"type:int" json:"max_score"`
 	Status      QuizSessionStatus `gorm:"type:varchar(50);default:'started'" json:"status"`
-	StartedAt   time.Time         `gorm:"type:timestamp" json:"started_at"`
-	CompletedAt time.Time         `gorm:"type:timestamp" json:"completed_at"`
+	StartedAt   *time.Time        `gorm:"type:timestamptz" json:"started_at"`
+	CompletedAt *time.Time        `gorm:"type:timestamptz" json:"completed_at"`
 	CreatedAt   time.Time         `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time         `gorm:"autoUpdateTime" json:"updated_at"`
 

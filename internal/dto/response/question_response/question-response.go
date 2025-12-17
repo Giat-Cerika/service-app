@@ -21,6 +21,7 @@ func ToQuestionResponse(question models.Question) QuestionResponse {
 	ans := []any{}
 	for _, answer := range question.Answers {
 		ans = append(ans, map[string]any{
+			"answer_id":   answer.ID,
 			"answer_text": answer.AnswerText,
 			"score_value": answer.ScoreValue,
 		})

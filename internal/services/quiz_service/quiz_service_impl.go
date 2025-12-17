@@ -40,6 +40,18 @@ func (q *QuizServiceImpl) invalidateCacheQuiz(ctx context.Context) {
 	}
 }
 
+func (q *QuizServiceImpl) invalidateCacheQuestion(ctx context.Context) {
+	iter := q.rdb.Scan(ctx, 0, "questions:*", 0).Iterator()
+	for iter.Next(ctx) {
+		q.rdb.Del(ctx, iter.Val()).Err()
+	}
+
+	IterID := q.rdb.Scan(ctx, 0, "question:*", 0).Iterator()
+	for IterID.Next(ctx) {
+		q.rdb.Del(ctx, IterID.Val()).Err()
+	}
+}
+
 // CreateQuiz implements IQuizService.
 func (q *QuizServiceImpl) CreateQuiz(ctx context.Context, req quizrequest.CreateQuizRequest) error {
 	if req.QuizTypeId == uuid.Nil {
@@ -177,6 +189,7 @@ func (q *QuizServiceImpl) UpdateQuiz(ctx context.Context, quizId uuid.UUID, req 
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to update quiz", 500)
 	}
 	q.invalidateCacheQuiz(ctx)
+	q.invalidateCacheQuestion(ctx)
 	return nil
 }
 

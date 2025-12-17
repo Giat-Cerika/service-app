@@ -159,8 +159,22 @@ func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionre
 }
 
 // FindAllQuestions implements IQuestionService.
-func (q *QuestionServiceImpl) FindAllQuestions(ctx context.Context, page int, limit int, search string) ([]*models.Question, int, error) {
-	cacheKey := fmt.Sprintf("questions:search=%s:page=%d:limit=%d", search, page, limit)
+func (q *QuestionServiceImpl) FindAllQuestions(
+	ctx context.Context,
+	quizId uuid.UUID,
+	page int,
+	limit int,
+	search string,
+) ([]*models.Question, int, error) {
+
+	cacheKey := fmt.Sprintf(
+		"questions:quiz=%s:search=%s:page=%d:limit=%d",
+		quizId.String(),
+		search,
+		page,
+		limit,
+	)
+
 	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
 		var result struct {
 			Data  []*models.Question `json:"data"`
@@ -173,11 +187,38 @@ func (q *QuestionServiceImpl) FindAllQuestions(ctx context.Context, page int, li
 
 	offset := (page - 1) * limit
 
-	items, total, err := q.questionRepo.FindAllQuestions(ctx, limit, offset, search)
+	quiz, err := q.quizRepo.FindById(ctx, quizId)
 	if err != nil {
-		return nil, 0, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get questions", 500)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, 0, errorresponse.NewCustomError(
+				errorresponse.ErrNotFound,
+				"quiz not found",
+				404,
+			)
+		}
+		return nil, 0, errorresponse.NewCustomError(
+			errorresponse.ErrInternal,
+			"failed to get quiz",
+			500,
+		)
 	}
-	if len(items) == 0 {
+
+	items, total, err := q.questionRepo.FindAllQuestions(
+		ctx,
+		quiz.ID,
+		limit,
+		offset,
+		search,
+	)
+	if err != nil {
+		return nil, 0, errorresponse.NewCustomError(
+			errorresponse.ErrInternal,
+			"failed to get questions",
+			500,
+		)
+	}
+
+	if items == nil {
 		items = []*models.Question{}
 	}
 
@@ -188,7 +229,6 @@ func (q *QuestionServiceImpl) FindAllQuestions(ctx context.Context, page int, li
 	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
 
 	return items, total, nil
-
 }
 
 // FindQuestionById implements IQuestionService.
