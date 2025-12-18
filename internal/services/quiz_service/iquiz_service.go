@@ -16,4 +16,6 @@ type IQuizService interface {
 	DeleteQuiz(ctx context.Context, quizId uuid.UUID) error
 	UpdateStatusQuiz(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateStatusQuizRequest) error
 	UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateQuestionOrderModeRequest) error
+
+	GetAllQuizAvailable(ctx context.Context, search string) ([]*models.Quiz, error)
 }

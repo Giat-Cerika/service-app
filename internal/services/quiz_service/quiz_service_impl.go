@@ -38,6 +38,10 @@ func (q *QuizServiceImpl) invalidateCacheQuiz(ctx context.Context) {
 	for iterID.Next(ctx) {
 		q.rdb.Del(ctx, iterID.Val())
 	}
+	iterPublic := q.rdb.Scan(ctx, 0, "quizzes_available:*", 0).Iterator()
+	for iterPublic.Next(ctx) {
+		q.rdb.Del(ctx, iterPublic.Val())
+	}
 }
 
 func (q *QuizServiceImpl) invalidateCacheQuestion(ctx context.Context) {
@@ -245,4 +249,31 @@ func (q *QuizServiceImpl) UpdateQuestionOrderMode(ctx context.Context, quizId uu
 	}
 	q.invalidateCacheQuiz(ctx)
 	return nil
+}
+
+// GetAllQuizAvailable implements [IQuizService].
+func (q *QuizServiceImpl) GetAllQuizAvailable(ctx context.Context, search string) ([]*models.Quiz, error) {
+	cacheKey := fmt.Sprintf("quizzes_available:search:%s", search)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var data []*models.Quiz
+		if json.Unmarshal([]byte(cached), &data) == nil {
+			return data, nil
+		}
+	}
+
+	items, err := q.quizRepo.FindAllQuizAvailable(ctx, search)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz available", 500)
+	}
+
+	if len(items) == 0 {
+		items = []*models.Quiz{}
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data": items,
+	})
+
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+	return items, nil
 }

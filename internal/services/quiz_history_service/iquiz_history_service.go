@@ -9,4 +9,5 @@ import (
 
 type IQuizHistoryService interface {
 	GetHistoryQuizStudent(ctx context.Context, userId uuid.UUID, search string) ([]*models.QuizHistory, error)
+	GetAllHistoryQuestionByQuizHistory(ctx context.Context, quizHistoryId uuid.UUID) ([]*models.QuestionHistory, error)
 }

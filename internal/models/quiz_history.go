@@ -29,4 +29,6 @@ type QuizHistory struct {
 
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+
+	QuestionHistory []QuestionHistory `gorm:"contraint:OnDelete:CASCADE;"`
 }

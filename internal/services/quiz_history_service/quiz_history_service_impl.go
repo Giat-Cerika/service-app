@@ -61,3 +61,40 @@ func (q QuizHistoryServiceImpl) GetHistoryQuizStudent(ctx context.Context, userI
 	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
 	return items, nil
 }
+
+// GetAllHistoryQuestionByQuizHistory implements [IQuizHistoryService].
+func (q *QuizHistoryServiceImpl) GetAllHistoryQuestionByQuizHistory(ctx context.Context, quizHistoryId uuid.UUID) ([]*models.QuestionHistory, error) {
+	cacheKey := fmt.Sprintf("questions_history:quiz_history:%s", quizHistoryId)
+
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var data []*models.QuestionHistory
+		if json.Unmarshal([]byte(cached), &data) == nil {
+			return data, nil
+		}
+	}
+
+	quizHistory, err := q.quizHistoryRepo.FindQuizHistoryById(ctx, quizHistoryId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "quiz history not found", 404)
+		}
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz history", 500)
+	}
+
+	items, err := q.quizHistoryRepo.FindAllQuestionHistory(ctx, quizHistory.ID)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get question history", 500)
+	}
+
+	if items == nil {
+		items = []*models.QuestionHistory{}
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data": items,
+	})
+
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return items, nil
+}

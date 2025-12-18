@@ -18,4 +18,6 @@ type IQuizRepository interface {
 	DecreaseAmountQuestion(ctx context.Context, quizId uuid.UUID) error
 	UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, mode string) error
 	IncreamentAmountAssigned(ctx context.Context, quizId uuid.UUID) error
+
+	FindAllQuizAvailable(ctx context.Context, search string) ([]*models.Quiz, error)
 }

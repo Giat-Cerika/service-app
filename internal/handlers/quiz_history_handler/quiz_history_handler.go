@@ -44,3 +44,25 @@ func (qh *QuizHistoryHandler) GetHistoryQuizStudent(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Get Quiz HIstory Student Successfully", data)
 }
+
+func (qh *QuizHistoryHandler) GetAllQuestionHistory(c echo.Context) error {
+	quizHistoryId, err := uuid.Parse(c.Param("quizHistoryId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	questionHistory, err := qh.qhService.GetAllHistoryQuestionByQuizHistory(c.Request().Context(), quizHistoryId)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to get question history", err.Error())
+	}
+
+	data := make([]quizhistoryresponse.QuestionHistory, len(questionHistory))
+	for i, question := range questionHistory {
+		data[i] = quizhistoryresponse.ToQuestionHistory(*question)
+	}
+
+	return response.Success(c, http.StatusOK, "Get all question history successfully", data)
+}

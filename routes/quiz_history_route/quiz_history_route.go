@@ -21,4 +21,5 @@ func QuizHistoryRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 
 	qhGruop := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("STUDENT")))
 	qhGruop.GET("/my-history", quizHistoryHandler.GetHistoryQuizStudent)
+	qhGruop.GET("/question-history/:quizHistoryId", quizHistoryHandler.GetAllQuestionHistory)
 }

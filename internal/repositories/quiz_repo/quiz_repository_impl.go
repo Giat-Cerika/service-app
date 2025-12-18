@@ -86,3 +86,20 @@ func (q *QuizRepositoryImpl) UpdateQuestionOrderMode(ctx context.Context, quizId
 func (q *QuizRepositoryImpl) IncreamentAmountAssigned(ctx context.Context, quizId uuid.UUID) error {
 	return q.db.WithContext(ctx).Model(&models.Quiz{}).Where("id = ?", quizId).UpdateColumn("amount_assigned", gorm.Expr("amount_assigned + ?", 1)).Error
 }
+
+// FindAllQuizAvailable implements [IQuizRepository].
+func (q *QuizRepositoryImpl) FindAllQuizAvailable(ctx context.Context, search string) ([]*models.Quiz, error) {
+	var quiz []*models.Quiz
+
+	query := q.db.WithContext(ctx).Model(&models.Quiz{}).Where("status = ?", 1)
+
+	if search != "" {
+		query = query.Where("title ILIKE ?", "%"+search+"%")
+	}
+
+	if err := query.Preload("QuizType").Find(&quiz).Error; err != nil {
+		return nil, err
+	}
+
+	return quiz, nil
+}

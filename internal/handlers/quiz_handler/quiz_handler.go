@@ -145,3 +145,22 @@ func (q *QuizHandler) UpdateQuestionOrderMode(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Quiz Question Order Mode Updated Successfully", nil)
 }
+
+func (q *QuizHandler) GetAllQuizAvailable(c echo.Context) error {
+	search := c.QueryParam("search")
+
+	items, err := q.quizService.GetAllQuizAvailable(c.Request().Context(), search)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to get quiz available", 500)
+	}
+
+	data := make([]quizresponse.QuizResponse, len(items))
+	for i, quiz := range items {
+		data[i] = quizresponse.ToQuizResponse(*quiz)
+	}
+
+	return response.Success(c, http.StatusOK, "Get Quiz Available Successfully", data)
+}
