@@ -29,4 +29,5 @@ func QuizRoute(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 
 	quizStudent := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("STUDENT")))
 	quizStudent.GET("/all-available", quizHandler.GetAllQuizAvailable)
+	quizStudent.GET("/available/:quizId", quizHandler.GetQuizAvailableById)
 }

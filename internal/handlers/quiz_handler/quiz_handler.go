@@ -164,3 +164,22 @@ func (q *QuizHandler) GetAllQuizAvailable(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Get Quiz Available Successfully", data)
 }
+
+func (q *QuizHandler) GetQuizAvailableById(c echo.Context) error {
+	quizId, err := uuid.Parse(c.Param("quizId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	quiz, err := q.quizService.GetQuizAvailableById(c.Request().Context(), quizId)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to get detail quiz", err.Error())
+	}
+
+	data := quizresponse.ToQuizResponse(*quiz)
+
+	return response.Success(c, http.StatusOK, "Get Detail Quiz Successfully", data)
+}

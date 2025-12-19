@@ -277,3 +277,32 @@ func (q *QuizServiceImpl) GetAllQuizAvailable(ctx context.Context, search string
 	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
 	return items, nil
 }
+
+// GetQuizAvailableById implements [IQuizService].
+func (q *QuizServiceImpl) GetQuizAvailableById(ctx context.Context, quizId uuid.UUID) (*models.Quiz, error) {
+	cacheKey := fmt.Sprintf("quizzes_available:%s", quizId)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var data *models.Quiz
+		if json.Unmarshal([]byte(cached), &data) == nil {
+			return data, nil
+		}
+	}
+
+	quiz, err := q.quizRepo.FindById(ctx, quizId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "quiz not found", 404)
+		}
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz", 500)
+	}
+
+	item, err := q.quizRepo.FindQuizAvailableById(ctx, quiz.ID)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get detail quiz", 500)
+	}
+
+	buf, _ := json.Marshal(item)
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return item, nil
+}

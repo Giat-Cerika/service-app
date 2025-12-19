@@ -18,4 +18,5 @@ type IQuizService interface {
 	UpdateQuestionOrderMode(ctx context.Context, quizId uuid.UUID, req quizrequest.UpdateQuestionOrderModeRequest) error
 
 	GetAllQuizAvailable(ctx context.Context, search string) ([]*models.Quiz, error)
+	GetQuizAvailableById(ctx context.Context, quizId uuid.UUID) (*models.Quiz, error)
 }

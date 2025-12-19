@@ -103,3 +103,13 @@ func (q *QuizRepositoryImpl) FindAllQuizAvailable(ctx context.Context, search st
 
 	return quiz, nil
 }
+
+// FindQuizAvailableById implements [IQuizRepository].
+func (q *QuizRepositoryImpl) FindQuizAvailableById(ctx context.Context, quizId uuid.UUID) (*models.Quiz, error) {
+	var quiz models.Quiz
+	if err := q.db.WithContext(ctx).Preload("QuizType").First(&quiz, "id = ?", quizId).Error; err != nil {
+		return nil, err
+	}
+
+	return &quiz, nil
+}

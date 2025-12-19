@@ -20,4 +20,5 @@ type IQuizRepository interface {
 	IncreamentAmountAssigned(ctx context.Context, quizId uuid.UUID) error
 
 	FindAllQuizAvailable(ctx context.Context, search string) ([]*models.Quiz, error)
+	FindQuizAvailableById(ctx context.Context, quizId uuid.UUID) (*models.Quiz, error)
 }
