@@ -117,38 +117,84 @@ func (q *QuizSessionServiceImpl) AssignCodeQuiz(ctx context.Context, userId uuid
 }
 
 // StartQuizSession implements [IQuizSessionService].
-func (q *QuizSessionServiceImpl) StartQuizSession(ctx context.Context, userId uuid.UUID, quizSessionId uuid.UUID) (*quizsessionresponse.QuizSessionStartResponse, error) {
+func (q *QuizSessionServiceImpl) StartQuizSession(
+	ctx context.Context,
+	userId uuid.UUID,
+	quizSessionId uuid.UUID,
+) (*quizsessionresponse.QuizSessionStartResponse, error) {
+
+	// =========================
+	// GET STUDENT
+	// =========================
 	student, err := q.studentRepo.FindByStudentID(ctx, userId)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "student not found", 404)
+			return nil, errorresponse.NewCustomError(
+				errorresponse.ErrNotFound,
+				"student not found",
+				404,
+			)
 		}
-		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
+		return nil, errorresponse.NewCustomError(
+			errorresponse.ErrInternal,
+			"failed to get student",
+			500,
+		)
 	}
 
+	// =========================
+	// GET QUIZ SESSION
+	// =========================
 	quizSession, err := q.quizSessionRepo.FindById(ctx, student.ID, quizSessionId)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "quiz session not found", 404)
+			return nil, errorresponse.NewCustomError(
+				errorresponse.ErrNotFound,
+				"quiz session not found",
+				404,
+			)
 		}
-		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz session", 500)
+		return nil, errorresponse.NewCustomError(
+			errorresponse.ErrInternal,
+			"failed to get quiz session",
+			500,
+		)
 	}
 
 	if quizSession.Status == models.SessionStatusCompleted {
-		return nil, errorresponse.NewCustomError(errorresponse.ErrBadRequest, "quiz session already completed", 400)
+		return nil, errorresponse.NewCustomError(
+			errorresponse.ErrBadRequest,
+			"quiz session already completed",
+			400,
+		)
 	}
 
-	// Get quiz detail untuk ambil startDate dan endDate
+	// =========================
+	// GET QUIZ DETAIL
+	// =========================
 	quiz, err := q.quizRepo.FindById(ctx, quizSession.QuizID)
 	if err != nil {
-		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz", 500)
+		return nil, errorresponse.NewCustomError(
+			errorresponse.ErrInternal,
+			"failed to get quiz",
+			500,
+		)
 	}
 
+	// =========================
+	// TIMEZONE NORMALIZATION
+	// =========================
 	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
+
 	now := time.Now().In(locJakarta)
 	start := quiz.StartDate.In(locJakarta)
+	end := quiz.EndDate.In(locJakarta)
 
+	// =========================
+	// VALIDASI START TIME
+	// =========================
 	hasSpecificTime := !(start.Hour() == 0 && start.Minute() == 0 && start.Second() == 0)
+
 	if hasSpecificTime {
 		// 🔹 start date PAKAI JAM → full datetime comparison
 		if now.Before(start) {
@@ -162,7 +208,7 @@ func (q *QuizSessionServiceImpl) StartQuizSession(ctx context.Context, userId uu
 			)
 		}
 	} else {
-		// 🔹 start date UNLIMITED → cek tanggal saja
+		// 🔹 start date TANPA JAM → cek tanggal saja
 		nowDate := time.Date(
 			now.Year(), now.Month(), now.Day(),
 			0, 0, 0, 0, locJakarta,
@@ -185,58 +231,70 @@ func (q *QuizSessionServiceImpl) StartQuizSession(ctx context.Context, userId uu
 		}
 	}
 
+	// =========================
+	// DURASI & END TIME
+	// =========================
 	var durationSeconds int64
 	var isUnlimited bool
 	var endTime *time.Time
 
 	redisKey := fmt.Sprintf("quiz_session:%s:duration", quizSession.ID.String())
 
-	// Cek apakah unlimited (startDate dan endDate adalah zero time atau sama)
-	if quiz.StartDate.IsZero() || quiz.EndDate.IsZero() || quiz.StartDate.Equal(quiz.EndDate) {
+	// Unlimited quiz
+	if start.IsZero() || end.IsZero() || start.Equal(end) {
 		isUnlimited = true
 		durationSeconds = 0
 	} else {
-		// *** CEK APAKAH DURASI SUDAH ADA DI REDIS ***
+		// Cek TTL Redis (resume support)
 		existingTTL := q.rdb.TTL(ctx, redisKey).Val()
 
 		if existingTTL > 0 {
-			// Jika sudah ada di Redis, gunakan remaining time yang ada
+			// Resume quiz
 			durationSeconds = int64(existingTTL.Seconds())
 
-			// Hitung end time dari remaining time
-			now := time.Now()
 			calculatedEndTime := now.Add(existingTTL)
 			endTime = &calculatedEndTime
 
 			isUnlimited = false
 		} else {
-			// Jika belum ada di Redis (first time start), hitung durasi baru
-			duration := quiz.EndDate.Sub(quiz.StartDate)
+			// First start
+			duration := end.Sub(start)
 			durationSeconds = int64(duration.Seconds())
 
-			// Hitung waktu berakhir berdasarkan waktu sekarang + durasi
-			now := time.Now()
 			calculatedEndTime := now.Add(duration)
 			endTime = &calculatedEndTime
 
 			isUnlimited = false
 
-			// Set durasi countdown di Redis dengan TTL HANYA jika belum ada
-			err = q.rdb.Set(ctx, redisKey, durationSeconds, time.Duration(durationSeconds)*time.Second).Err()
+			err = q.rdb.Set(
+				ctx,
+				redisKey,
+				durationSeconds,
+				time.Duration(durationSeconds)*time.Second,
+			).Err()
 			if err != nil {
 				fmt.Println("failed to set quiz duration in redis:", err)
 			}
 		}
 	}
 
-	// Update status jika masih "started"
+	// =========================
+	// UPDATE STARTED AT
+	// =========================
 	if quizSession.Status == models.SessionStatusStarted {
 		err = q.quizSessionRepo.CreateStartedAt(ctx, quizSession.ID)
 		if err != nil {
-			return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to start quiz", 500)
+			return nil, errorresponse.NewCustomError(
+				errorresponse.ErrInternal,
+				"failed to start quiz",
+				500,
+			)
 		}
 	}
 
+	// =========================
+	// RESPONSE
+	// =========================
 	response := &quizsessionresponse.QuizSessionStartResponse{
 		QuizSessionID:   quizSession.ID,
 		QuizID:          quiz.ID,
