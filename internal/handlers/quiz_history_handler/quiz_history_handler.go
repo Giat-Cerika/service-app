@@ -25,24 +25,22 @@ func (qh *QuizHistoryHandler) GetHistoryQuizStudent(c echo.Context) error {
 
 	claims, err := utils.GetClaimsFromContext(c)
 	if err != nil {
-		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized", nil)
 	}
-	studentId := claims.UserID
 
-	items, err := qh.qhService.GetHistoryQuizStudent(c.Request().Context(), uuid.MustParse(studentId), search)
+	data, err := qh.qhService.GetHistoryQuizStudent(
+		c.Request().Context(),
+		uuid.MustParse(claims.UserID),
+		search,
+	)
 	if err != nil {
-		if cutomErr, ok := errorresponse.AsCustomErr(err); ok {
-			return response.Error(c, cutomErr.Status, cutomErr.Msg, cutomErr.Err)
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
 		}
-		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to get quiz history student")
+		return response.Error(c, http.StatusInternalServerError, err.Error(), nil)
 	}
 
-	data := make([]quizhistoryresponse.QuizHistoryResponse, len(items))
-	for i, qh := range items {
-		data[i] = quizhistoryresponse.ToQuizHistoryResponse(*qh)
-	}
-
-	return response.Success(c, http.StatusOK, "Get Quiz HIstory Student Successfully", data)
+	return response.Success(c, http.StatusOK, "Get Quiz History Student Successfully", data)
 }
 
 func (qh *QuizHistoryHandler) GetAllQuestionHistory(c echo.Context) error {

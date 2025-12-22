@@ -72,6 +72,13 @@ func (q *QuizSessionServiceImpl) AssignCodeQuiz(ctx context.Context, userId uuid
 	if quizId == quiz.ID && code != quiz.Code {
 		return nil, errorresponse.NewCustomError(errorresponse.ErrExists, "code access incorrect", 409)
 	}
+	isComplete, err := q.quizSessionRepo.FindCompleteStatusQuizSession(ctx, student.ID, quiz.ID)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to find quiz session", 500)
+	}
+	if isComplete {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Quiz Already Attempt", 500)
+	}
 
 	existingSession, err := q.quizSessionRepo.FindByUserAndQuiz(ctx, student.ID, quiz.ID)
 	if err == nil && existingSession != nil {
@@ -135,6 +142,47 @@ func (q *QuizSessionServiceImpl) StartQuizSession(ctx context.Context, userId uu
 	quiz, err := q.quizRepo.FindById(ctx, quizSession.QuizID)
 	if err != nil {
 		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz", 500)
+	}
+
+	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
+	now := time.Now().In(locJakarta)
+	start := quiz.StartDate.In(locJakarta)
+
+	hasSpecificTime := !(start.Hour() == 0 && start.Minute() == 0 && start.Second() == 0)
+	if hasSpecificTime {
+		// 🔹 start date PAKAI JAM → full datetime comparison
+		if now.Before(start) {
+			return nil, errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				fmt.Sprintf(
+					"quiz can be started at %s",
+					start.Format("02 Jan 2006 15:04"),
+				),
+				400,
+			)
+		}
+	} else {
+		// 🔹 start date UNLIMITED → cek tanggal saja
+		nowDate := time.Date(
+			now.Year(), now.Month(), now.Day(),
+			0, 0, 0, 0, locJakarta,
+		)
+
+		startDate := time.Date(
+			start.Year(), start.Month(), start.Day(),
+			0, 0, 0, 0, locJakarta,
+		)
+
+		if nowDate.Before(startDate) {
+			return nil, errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				fmt.Sprintf(
+					"quiz can be started on %s",
+					startDate.Format("02 Jan 2006"),
+				),
+				400,
+			)
+		}
 	}
 
 	var durationSeconds int64

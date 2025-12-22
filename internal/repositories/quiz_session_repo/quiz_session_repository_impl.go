@@ -166,8 +166,17 @@ func (q *QuizSessionRepositoryImpl) FindQuizSessionByQuiz(ctx context.Context) (
 	err := q.db.WithContext(ctx).
 		Preload("Quiz").
 		Preload("User").
-		Order("quiz_id ASC, Quiz.created_at ASC").
+		Order("quiz_id ASC, created_at ASC").
 		Find(&sessions).Error
 
 	return sessions, err
+}
+
+// FindCompleteStatusQuizSession implements [IQuizSessionRepository].
+func (q *QuizSessionRepositoryImpl) FindCompleteStatusQuizSession(ctx context.Context, userId uuid.UUID, quizId uuid.UUID) (bool, error) {
+	if err := q.db.WithContext(ctx).Where("user_id = ? AND quiz_id = ? AND status = ?", userId, quizId, "completed").First(&models.QuizSession{}).Error; err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

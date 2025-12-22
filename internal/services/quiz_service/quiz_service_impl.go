@@ -84,6 +84,74 @@ func (q *QuizServiceImpl) CreateQuiz(ctx context.Context, req quizrequest.Create
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "end date must be after start date", 400)
 	}
 
+	startUTC := req.StartDate.UTC()
+	endUTC := req.EndDate.UTC()
+
+	isUnlimited := startUTC.Equal(endUTC) &&
+		startUTC.Hour() == 0 &&
+		startUTC.Minute() == 0 &&
+		startUTC.Second() == 0
+
+	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
+	now := time.Now().In(locJakarta)
+
+	start := startUTC.In(locJakarta)
+	end := endUTC.In(locJakarta)
+
+	/*
+		|--------------------------------------------------------------------------
+		| UNLIMITED MODE
+		|--------------------------------------------------------------------------
+	*/
+	if isUnlimited {
+
+		// pastikan tanggal sama
+		if start.Year() != end.Year() ||
+			start.Month() != end.Month() ||
+			start.Day() != end.Day() {
+			return errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				"unlimited quiz must have same start and end date",
+				400,
+			)
+		}
+
+		// cek tanggal saja
+		nowDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, locJakarta)
+		quizDate := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, locJakarta)
+
+		if nowDate.Before(quizDate) {
+			return errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				"quiz can be started on "+quizDate.Format("02 Jan 2006"),
+				400,
+			)
+		}
+
+	} else {
+
+		/*
+		   |--------------------------------------------------------------------------
+		   | LIMITED MODE
+		   |--------------------------------------------------------------------------
+		*/
+		if start.Before(now) {
+			return errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				"start date must be now or in the future",
+				400,
+			)
+		}
+
+		if end.Before(start) {
+			return errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				"end date must be after start date",
+				400,
+			)
+		}
+	}
+
 	newQuiz := &models.Quiz{
 		ID:              uuid.New(),
 		QuizTypeID:      qt.ID,

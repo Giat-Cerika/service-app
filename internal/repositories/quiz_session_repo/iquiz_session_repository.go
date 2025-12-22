@@ -26,4 +26,5 @@ type IQuizSessionRepository interface {
 	FindQuizWithOrderedQuestions(ctx context.Context, quizId uuid.UUID, orderMode string) (*models.Quiz, error)
 
 	FindQuizSessionByQuiz(ctx context.Context) ([]models.QuizSession, error)
+	FindCompleteStatusQuizSession(ctx context.Context, userId uuid.UUID, quizId uuid.UUID) (bool, error)
 }
