@@ -182,13 +182,34 @@ func (q *QuizSessionServiceImpl) StartQuizSession(
 	}
 
 	// =========================
-	// TIMEZONE NORMALIZATION
+	// TIMEZONE FIX (NO .In())
 	// =========================
 	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
 
 	now := time.Now().In(locJakarta)
-	start := quiz.StartDate.In(locJakarta)
-	end := quiz.EndDate.In(locJakarta)
+
+	// 🔥 REBUILD TIME AS WIB (timestamp without tz fix)
+	start := time.Date(
+		quiz.StartDate.Year(),
+		quiz.StartDate.Month(),
+		quiz.StartDate.Day(),
+		quiz.StartDate.Hour(),
+		quiz.StartDate.Minute(),
+		quiz.StartDate.Second(),
+		0,
+		locJakarta,
+	)
+
+	end := time.Date(
+		quiz.EndDate.Year(),
+		quiz.EndDate.Month(),
+		quiz.EndDate.Day(),
+		quiz.EndDate.Hour(),
+		quiz.EndDate.Minute(),
+		quiz.EndDate.Second(),
+		0,
+		locJakarta,
+	)
 
 	// =========================
 	// VALIDASI START TIME
@@ -196,7 +217,6 @@ func (q *QuizSessionServiceImpl) StartQuizSession(
 	hasSpecificTime := !(start.Hour() == 0 && start.Minute() == 0 && start.Second() == 0)
 
 	if hasSpecificTime {
-		// 🔹 start date PAKAI JAM → full datetime comparison
 		if now.Before(start) {
 			return nil, errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
@@ -208,7 +228,6 @@ func (q *QuizSessionServiceImpl) StartQuizSession(
 			)
 		}
 	} else {
-		// 🔹 start date TANPA JAM → cek tanggal saja
 		nowDate := time.Date(
 			now.Year(), now.Month(), now.Day(),
 			0, 0, 0, 0, locJakarta,
@@ -234,18 +253,20 @@ func (q *QuizSessionServiceImpl) StartQuizSession(
 	// =========================
 	// DURASI & END TIME
 	// =========================
+	// =========================
+	// DURASI & END TIME (FIXED)
+	// =========================
 	var durationSeconds int64
 	var isUnlimited bool
 	var endTime *time.Time
 
 	redisKey := fmt.Sprintf("quiz_session:%s:duration", quizSession.ID.String())
 
-	// Unlimited quiz
 	if start.IsZero() || end.IsZero() || start.Equal(end) {
+		// Unlimited quiz
 		isUnlimited = true
 		durationSeconds = 0
 	} else {
-		// Cek TTL Redis (resume support)
 		existingTTL := q.rdb.TTL(ctx, redisKey).Val()
 
 		if existingTTL > 0 {
@@ -257,24 +278,32 @@ func (q *QuizSessionServiceImpl) StartQuizSession(
 
 			isUnlimited = false
 		} else {
-			// First start
-			duration := end.Sub(start)
-			durationSeconds = int64(duration.Seconds())
+			// 🔥 FIRST START → HITUNG SISA WAKTU
+			remaining := end.Sub(now)
 
-			calculatedEndTime := now.Add(duration)
+			// ❌ Sudah lewat end time
+			if remaining <= 0 {
+				return nil, errorresponse.NewCustomError(
+					errorresponse.ErrBadRequest,
+					"quiz time has ended",
+					400,
+				)
+			}
+
+			durationSeconds = int64(remaining.Seconds())
+
+			calculatedEndTime := now.Add(remaining)
 			endTime = &calculatedEndTime
 
 			isUnlimited = false
 
-			err = q.rdb.Set(
+			// Simpan sisa waktu ke Redis
+			_ = q.rdb.Set(
 				ctx,
 				redisKey,
 				durationSeconds,
 				time.Duration(durationSeconds)*time.Second,
 			).Err()
-			if err != nil {
-				fmt.Println("failed to set quiz duration in redis:", err)
-			}
 		}
 	}
 
