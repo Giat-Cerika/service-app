@@ -408,22 +408,16 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "type time only 'MORNING' or 'NIGHT'", 400)
 	}
 
-	// time range validation
 	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
 	nowJakarta := time.Now().In(locJakarta)
 	hour := nowJakarta.Hour()
 
-	// ✅ FIXED: correct log date (start of day in Jakarta)
-	logDate := time.Date(
-		nowJakarta.Year(),
-		nowJakarta.Month(),
-		nowJakarta.Day(),
-		0, 0, 0, 0,
-		locJakarta,
-	)
+	logDate := nowJakarta.Truncate(24 * time.Hour)
 
-	if strings.ToUpper(req.TimeType) == "MORNING" {
-		if hour < 5 || hour > 7 {
+	timeType := strings.ToUpper(req.TimeType)
+
+	if timeType == "MORNING" {
+		if hour < 5 || hour > 23 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
 				"absen pagi hanya bisa antara jam 05:00 sampai 07:00",
@@ -432,13 +426,19 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		}
 	}
 
-	if strings.ToUpper(req.TimeType) == "NIGHT" {
-		if hour < 17 || hour > 19 {
+	if timeType == "NIGHT" {
+		// validasi jam NIGHT
+		if hour < 0 || hour > 23 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
-				"absen malam hanya bisa antara jam 17:00 sampai 19:00",
+				"absen malam hanya bisa antara jam 17:00 sampai 04:59",
 				400,
 			)
+		}
+
+		// ✅ jika lewat tengah malam, log dianggap HARI SEBELUMNYA
+		if hour < 5 {
+			logDate = logDate.AddDate(0, 0, -1)
 		}
 	}
 
