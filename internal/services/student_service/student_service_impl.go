@@ -431,7 +431,7 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		if hour < 17 || hour > 19 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
-				"absen malam hanya bisa antara jam 17:00 sampai 04:59",
+				"absen malam hanya bisa antara jam 17:00 sampai 19:00",
 				400,
 			)
 		}
