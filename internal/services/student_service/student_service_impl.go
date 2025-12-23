@@ -413,18 +413,32 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 	nowJakarta := time.Now().In(locJakarta)
 	hour := nowJakarta.Hour()
 
-	// Get correct log date
-	logDate := nowJakarta.Truncate(24 * time.Hour)
+	// ✅ FIXED: correct log date (start of day in Jakarta)
+	logDate := time.Date(
+		nowJakarta.Year(),
+		nowJakarta.Month(),
+		nowJakarta.Day(),
+		0, 0, 0, 0,
+		locJakarta,
+	)
 
 	if strings.ToUpper(req.TimeType) == "MORNING" {
 		if hour < 5 || hour > 7 {
-			return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "absen pagi hanya bisa antara jam 05:00 sampai 07:00", 400)
+			return errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				"absen pagi hanya bisa antara jam 05:00 sampai 07:00",
+				400,
+			)
 		}
 	}
 
 	if strings.ToUpper(req.TimeType) == "NIGHT" {
 		if hour < 17 || hour > 19 {
-			return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "absen malam hanya bisa antara jam 17:00 sampai 19:00", 400)
+			return errorresponse.NewCustomError(
+				errorresponse.ErrBadRequest,
+				"absen malam hanya bisa antara jam 17:00 sampai 19:00",
+				400,
+			)
 		}
 	}
 

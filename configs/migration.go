@@ -30,6 +30,14 @@ func RunMigrations(db *gorm.DB) error {
 		&models.QuizHistory{},
 		&models.QuestionHistory{},
 		&models.AnswerHistory{},
+		&models.StimulatedSaliva{},
+		&models.RestingSaliva{},
+		&models.SalivaOption{},
+		&models.PlaqueOption{},
+		&models.DietDetail{},
+		&models.CariesRisk{},
+		&models.ConfidenceDetail{},
+		&models.Prediction{},
 	)
 }
 
