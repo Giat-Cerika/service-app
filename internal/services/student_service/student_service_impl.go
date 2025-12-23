@@ -417,7 +417,7 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 	timeType := strings.ToUpper(req.TimeType)
 
 	if timeType == "MORNING" {
-		if hour < 5 || hour > 23 {
+		if hour < 5 || hour > 7 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
 				"absen pagi hanya bisa antara jam 05:00 sampai 07:00",
@@ -428,7 +428,7 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 
 	if timeType == "NIGHT" {
 		// validasi jam NIGHT
-		if hour < 0 || hour > 23 {
+		if hour < 17 || hour > 19 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
 				"absen malam hanya bisa antara jam 17:00 sampai 04:59",
@@ -436,10 +436,10 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 			)
 		}
 
-		// ✅ jika lewat tengah malam, log dianggap HARI SEBELUMNYA
-		if hour < 5 {
-			logDate = logDate.AddDate(0, 0, -1)
-		}
+		// // ✅ jika lewat tengah malam, log dianggap HARI SEBELUMNYA
+		// if hour < 5 {
+		// 	logDate = logDate.AddDate(0, 0, -1)
+		// }
 	}
 
 	exists, err := s.studenRepo.CheckTootBrushExists(ctx, studentId, strings.ToUpper(req.TimeType), logDate)
