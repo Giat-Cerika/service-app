@@ -20,4 +20,5 @@ func PredictionRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client) {
 	predictGroup := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))
 	predictGroup.POST("/save", predictHandler.CreatePrediction)
 	predictGroup.GET("/all", predictHandler.GetAllPredictions)
+	predictGroup.DELETE("/:predictionId/delete", predictHandler.DeletePrediction)
 }

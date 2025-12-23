@@ -4,6 +4,7 @@ import (
 	"context"
 	"giat-cerika-service/internal/models"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -88,4 +89,27 @@ func (p *PredictionRepositoryImpl) GetAllPrediction(ctx context.Context, limit i
 	}
 
 	return predictions, int(count), nil
+}
+
+// GetByIdPrediction implements [IPredictionRepository].
+func (p *PredictionRepositoryImpl) GetByIdPrediction(ctx context.Context, predictionId uuid.UUID) (*models.Prediction, error) {
+	var prediction models.Prediction
+	if err := p.db.WithContext(ctx).
+		Preload("ConfidenceDetail").
+		Preload("CariesRisk").
+		Preload("CariesRisk.Diet").
+		Preload("CariesRisk.Plaque").
+		Preload("CariesRisk.Saliva").
+		Preload("CariesRisk.Saliva.RestingSaliva").
+		Preload("CariesRisk.Saliva.StimulatedSaliva").
+		First(&prediction, "id = ?", predictionId).Error; err != nil {
+		return nil, err
+	}
+
+	return &prediction, nil
+}
+
+// DeletePrediction implements [IPredictionRepository].
+func (p *PredictionRepositoryImpl) DeletePrediction(ctx context.Context, predictionId uuid.UUID) error {
+	return p.db.WithContext(ctx).Delete(&models.Prediction{}, "id = ?", predictionId).Error
 }

@@ -3,6 +3,8 @@ package predictionrepo
 import (
 	"context"
 	"giat-cerika-service/internal/models"
+
+	"github.com/google/uuid"
 )
 
 type IPredictionRepository interface {
@@ -17,4 +19,6 @@ type IPredictionRepository interface {
 	CreateSalivaOption(ctx context.Context, data *models.SalivaOption) error
 
 	GetAllPrediction(ctx context.Context, limit, offset int, search string) ([]*models.Prediction, int, error)
+	GetByIdPrediction(ctx context.Context, predictionId uuid.UUID) (*models.Prediction, error)
+	DeletePrediction(ctx context.Context, predictionId uuid.UUID) error
 }

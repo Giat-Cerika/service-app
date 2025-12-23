@@ -9,6 +9,7 @@ import (
 	"giat-cerika-service/pkg/utils"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -55,4 +56,20 @@ func (ph *PredictionHandler) GetAllPredictions(c echo.Context) error {
 	}
 
 	return response.PaginatedSuccess(c, http.StatusOK, "Get All Prediction Succesfully", data, meta)
+}
+
+func (ph *PredictionHandler) DeletePrediction(c echo.Context) error {
+	predictionId, err := uuid.Parse(c.Param("predictionId"))
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	if err := ph.service.DeletePrediction(c.Request().Context(), predictionId); err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to delete data", 500)
+	}
+
+	return response.Success(c, http.StatusOK, "Deleted Prediction Successfully", nil)
 }

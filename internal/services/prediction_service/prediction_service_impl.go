@@ -3,6 +3,7 @@ package predictionservice
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"giat-cerika-service/configs"
 	predictionrequest "giat-cerika-service/internal/dto/request/prediction_request"
@@ -187,4 +188,24 @@ func (p *PredictionServiceImpl) GetAllPrediction(ctx context.Context, page int, 
 	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
 
 	return items, total, nil
+}
+
+// DeletePrediction implements [IPredictionService].
+func (p *PredictionServiceImpl) DeletePrediction(ctx context.Context, predictionId uuid.UUID) error {
+	prediction, err := p.predictionRepo.GetByIdPrediction(ctx, predictionId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "prediction not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get prediction", 500)
+	}
+
+	err = p.predictionRepo.DeletePrediction(ctx, prediction.ID)
+	if err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete prediction", 500)
+	}
+
+	p.invalidateCachePrediction(ctx)
+
+	return nil
 }
