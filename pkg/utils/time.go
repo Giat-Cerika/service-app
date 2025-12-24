@@ -30,5 +30,5 @@ func FormatLogDate(dateStr string) string {
 	if err != nil {
 		return dateStr
 	}
-	return t.Format("2006-01-02")
+	return t.Format("02-01-2006")
 }
