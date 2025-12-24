@@ -11,7 +11,7 @@ type ToootBrushLog struct {
 	UserID    uuid.UUID `gorm:"not null" json:"user_id"`
 	User      User      `gorm:"foreignKey:UserID"`
 	TimeType  string    `gorm:"type:varchar(100);not null" json:"time_type"`
-	LogDate   time.Time `gorm:"type:date;not null" json:"log_date"`
+	LogDate   string    `gorm:"type:date;not null" json:"log_date"`
 	LogTime   time.Time `gorm:"type:time;not null" json:"log_time"`
 	CreatedAt time.Time `json:"created_at"`
 }

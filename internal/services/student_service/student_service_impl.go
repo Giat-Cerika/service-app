@@ -410,45 +410,33 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 
 	locJakarta, _ := time.LoadLocation("Asia/Jakarta")
 	nowJakarta := time.Now().In(locJakarta)
+
 	hour := nowJakarta.Hour()
-
-	logDate := time.Date(
-		nowJakarta.Year(),
-		nowJakarta.Month(),
-		nowJakarta.Day(),
-		0, 0, 0, 0,
-		locJakarta,
-	)
-
 	timeType := strings.ToUpper(req.TimeType)
 
 	if timeType == "MORNING" {
-		if hour < 5 || hour > 10 {
+		if hour < 5 || hour > 7 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
-				"absen pagi hanya bisa antara jam 05:00 sampai 07:00",
+				"absen pagi hanya bisa antara jam 05:00 sampai 10:00",
 				400,
 			)
 		}
 	}
 
 	if timeType == "NIGHT" {
-		// validasi jam NIGHT
-		if hour < 17 || hour > 19 {
+		if hour < 17 || hour > 22 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
 				"absen malam hanya bisa antara jam 17:00 sampai 19:00",
 				400,
 			)
 		}
-
-		// // ✅ jika lewat tengah malam, log dianggap HARI SEBELUMNYA
-		// if hour < 5 {
-		// 	logDate = logDate.AddDate(0, 0, -1)
-		// }
 	}
 
-	exists, err := s.studenRepo.CheckTootBrushExists(ctx, studentId, strings.ToUpper(req.TimeType), logDate)
+	logDate := nowJakarta.Format("2006-01-02")
+
+	exists, err := s.studenRepo.CheckTootBrushExists(ctx, studentId, strings.ToUpper(req.TimeType), nowJakarta)
 	if err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to check log", 500)
 	}
@@ -465,10 +453,12 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get student", 500)
 	}
 
+	fmt.Println(logDate)
+
 	newLog := &models.ToootBrushLog{
 		ID:        uuid.New(),
 		UserID:    student.ID,
-		TimeType:  strings.ToUpper(req.TimeType),
+		TimeType:  timeType,
 		LogDate:   logDate,
 		LogTime:   nowJakarta,
 		CreatedAt: nowJakarta,

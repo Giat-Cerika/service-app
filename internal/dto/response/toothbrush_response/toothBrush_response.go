@@ -21,7 +21,7 @@ func ToToothBrushResponse(toothBrush models.ToootBrushLog) ToothBrushResponse {
 		ID:        toothBrush.ID,
 		User:      *toothBrush.User.Name,
 		TimeType:  toothBrush.TimeType,
-		LogDate:   utils.FormatDate(toothBrush.LogDate),
+		LogDate:   toothBrush.LogDate,
 		LogTime:   utils.FormatTime(toothBrush.LogTime),
 		CreatedAt: utils.FormatDate(toothBrush.CreatedAt),
 	}
