@@ -25,9 +25,10 @@ func FormatOnlyDate(t time.Time) string {
 }
 
 func FormatLogDate(dateStr string) string {
-	t, err := time.Parse("2006-01-02 15:04:05", dateStr)
+	// parse RFC3339: 2025-12-24T00:00:00Z
+	t, err := time.Parse(time.RFC3339, dateStr)
 	if err != nil {
-		return dateStr // fallback
+		return dateStr
 	}
 	return t.Format("2006-01-02")
 }
