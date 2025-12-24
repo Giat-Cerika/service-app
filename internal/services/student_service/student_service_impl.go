@@ -412,10 +412,11 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 	nowJakarta := time.Now().In(locJakarta)
 
 	hour := nowJakarta.Hour()
+	minute := nowJakarta.Minute()
 	timeType := strings.ToUpper(req.TimeType)
 
 	if timeType == "MORNING" {
-		if hour < 5 || hour > 7 {
+		if hour < 5 || (hour == 7 && minute > 0) || hour > 7 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
 				"absen pagi hanya bisa antara jam 05:00 sampai 10:00",
@@ -425,10 +426,10 @@ func (s *StudentServiceImpl) CreateTootBrushStudent(ctx context.Context, student
 	}
 
 	if timeType == "NIGHT" {
-		if hour < 17 || hour > 22 {
+		if hour < 17 || (hour == 22 && minute > 0) || hour > 22 {
 			return errorresponse.NewCustomError(
 				errorresponse.ErrBadRequest,
-				"absen malam hanya bisa antara jam 17:00 sampai 19:00",
+				"absen malam hanya bisa antara jam 17:00 sampai 22:00",
 				400,
 			)
 		}
