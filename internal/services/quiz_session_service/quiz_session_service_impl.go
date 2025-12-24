@@ -41,6 +41,10 @@ func (q *QuizSessionServiceImpl) invalidateCacheQuiz(ctx context.Context) {
 	for iterID.Next(ctx) {
 		q.rdb.Del(ctx, iterID.Val())
 	}
+	iterPublic := q.rdb.Scan(ctx, 0, "quizzes_available:*", 0).Iterator()
+	for iterPublic.Next(ctx) {
+		q.rdb.Del(ctx, iterPublic.Val())
+	}
 }
 
 // AssignCodeQuiz implements [IQuizSessionService].
