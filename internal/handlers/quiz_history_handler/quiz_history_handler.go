@@ -64,3 +64,15 @@ func (qh *QuizHistoryHandler) GetAllQuestionHistory(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Get all question history successfully", data)
 }
+
+func (qh *QuizHistoryHandler) GetHistoryQuizByQuizID(c echo.Context) error {
+	data, err := qh.qhService.GetHistoryQuizByQuizID(c.Request().Context())
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, err.Error(), nil)
+	}
+
+	return response.Success(c, http.StatusOK, "Get Quiz History Successfully", data)
+}

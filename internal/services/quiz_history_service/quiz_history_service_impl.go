@@ -134,3 +134,78 @@ func (q *QuizHistoryServiceImpl) GetAllHistoryQuestionByQuizHistory(ctx context.
 
 	return items, nil
 }
+
+// GetHistoryQuizByQuizID implements [IQuizHistoryService].
+func (q *QuizHistoryServiceImpl) GetHistoryQuizByQuizID(ctx context.Context) ([]quizhistoryresponse.QuizHistoryGroupAdminResponse, error) {
+	cacheKey := fmt.Sprintln("quizHistory:all")
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var data []quizhistoryresponse.QuizHistoryGroupAdminResponse
+		if json.Unmarshal([]byte(cached), &data) == nil {
+			return data, nil
+		}
+	}
+	items, err := q.quizHistoryRepo.FindHistoryByQuizID(ctx)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get history quiz student", 500)
+	}
+
+	grouped := make(map[uuid.UUID]*quizhistoryresponse.QuizHistoryGroupAdminResponse)
+
+	for _, h := range items {
+		quizID := h.QuizID
+
+		// ===== INIT GROUP (1 QUIZ) =====
+		if _, ok := grouped[quizID]; !ok {
+
+			quiz, err := q.quizRepo.FindById(ctx, quizID)
+			if err != nil {
+				continue
+			}
+
+			grouped[quizID] = &quizhistoryresponse.QuizHistoryGroupAdminResponse{
+				QuizID:          quiz.ID,
+				Title:           quiz.Title,
+				Description:     quiz.Description,
+				StartDate:       utils.FormatDateTime(&quiz.StartDate),
+				EndDate:         utils.FormatDateTime(&quiz.EndDate),
+				DetailHistories: []quizhistoryresponse.QuizHistoryDetailAdminResponse{},
+			}
+		}
+
+		// ===== DETAIL HISTORY =====
+		student, err := q.studentRepo.FindByStudentID(ctx, h.UserID)
+		if err != nil {
+			continue
+		}
+
+		grouped[quizID].DetailHistories = append(
+			grouped[quizID].DetailHistories,
+			quizhistoryresponse.QuizHistoryDetailAdminResponse{
+				ID:             h.ID,
+				StudentName:    *student.Name,
+				Class:          student.Class.NameClass,
+				Score:          h.Score,
+				MaxScore:       h.MaxScore,
+				Percentage:     h.Percentage,
+				Status:         string(h.Status),
+				StatusCategory: h.StatusCategory,
+				StartedAt:      utils.FormatDateTime(h.StartedAt),
+				CompletedAt:    utils.FormatDateTime(h.CompletedAt),
+				CreatedAt:      utils.FormatDate(h.CreatedAt),
+			},
+		)
+	}
+
+	// ===== MAP → SLICE =====
+	result := make([]quizhistoryresponse.QuizHistoryGroupAdminResponse, 0, len(grouped))
+	for _, v := range grouped {
+		result = append(result, *v)
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data": result,
+	})
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	return result, nil
+}

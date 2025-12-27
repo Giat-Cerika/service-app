@@ -74,3 +74,16 @@ func (q *QuizHistoryRepositoryImpl) FindQuizHistoryById(ctx context.Context, qui
 
 	return &quizHistory, nil
 }
+
+// FindHistoryByQuizID implements [IQuizHistoryRepository].
+func (q *QuizHistoryRepositoryImpl) FindHistoryByQuizID(ctx context.Context) ([]*models.QuizHistory, error) {
+	var quizHistories []*models.QuizHistory
+
+	query := q.db.WithContext(ctx).Model(&models.QuizHistory{}).Order("quiz_id ASC, created_at ASC")
+
+	if err := query.Order("created_at ASC").Find(&quizHistories).Error; err != nil {
+		return nil, err
+	}
+
+	return quizHistories, nil
+}

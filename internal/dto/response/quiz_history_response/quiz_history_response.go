@@ -79,3 +79,26 @@ func ToQuestionHistory(qh models.QuestionHistory) QuestionHistory {
 		UpdatedAt:       utils.FormatDate(qh.UpdatedAt),
 	}
 }
+
+type QuizHistoryGroupAdminResponse struct {
+	QuizID          uuid.UUID                        `json:"quiz_id"`
+	Title           string                           `json:"title"`
+	Description     string                           `json:"description"`
+	StartDate       string                           `json:"start_date"`
+	EndDate         string                           `json:"end_date"`
+	DetailHistories []QuizHistoryDetailAdminResponse `json:"detail_histories"`
+}
+
+type QuizHistoryDetailAdminResponse struct {
+	ID             uuid.UUID `json:"id"`
+	StudentName    string    `json:"student_name"`
+	Class          string    `json:"class"`
+	Score          int       `json:"score"`
+	MaxScore       int       `json:"max_score"`
+	Percentage     float64   `json:"percentage"`
+	Status         string    `json:"status"`
+	StatusCategory int       `json:"status_category"`
+	StartedAt      string    `json:"started_at"`
+	CompletedAt    string    `json:"completed_at"`
+	CreatedAt      string    `json:"created_at"`
+}
