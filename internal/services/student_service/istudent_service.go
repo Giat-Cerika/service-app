@@ -22,4 +22,5 @@ type IStudentService interface {
 
 	CreateTootBrushStudent(ctx context.Context, studentId uuid.UUID, req studentrequest.CreateTootBrushRequest) error
 	GetHitoryToothBrush(ctx context.Context, studentId uuid.UUID, typeTime string, page int, limit int) ([]*models.ToootBrushLog, int, error)
+	GetAllStudents(ctx context.Context, page int, limit int, search string) ([]*models.User, int, error)
 }

@@ -169,3 +169,25 @@ func (s *StudentRepositoryImpl) GetHistoryTootBrush(ctx context.Context, student
 
 	return logs, int(count), nil
 }
+
+// FindAll implements IStudentRepository.
+func (q *StudentRepositoryImpl) FindAllStudents(ctx context.Context, limit, offset int, search string) ([]*models.User, int, error) {
+	var (
+		students []*models.User
+		count    int64
+	)
+
+	query := q.db.WithContext(ctx).Model(&models.User{})
+	if search != "" {
+		query = query.Where("name ILIKE ?", "%"+search+"%")
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := query.Limit(limit).Offset(offset).Find(&students).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return students, int(count), nil
+}

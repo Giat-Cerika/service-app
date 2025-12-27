@@ -298,3 +298,23 @@ func (s *StudentHandler) GetHistoryToothBrush(c echo.Context) error {
 
 	return response.PaginatedSuccess(c, http.StatusOK, "Get Tooth Brush History Successfully", data, meta)
 }
+
+func (q *StudentHandler) GetStudentAll(c echo.Context) error {
+	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
+	search := c.QueryParam("search")
+
+	students, total, err := q.studentService.GetAllStudents(c.Request().Context(), pageInt, limitInt, search)
+	if err != nil {
+		if cutomErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, cutomErr.Status, cutomErr.Msg, cutomErr.Err.Error())
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to get students", err.Error())
+	}
+	meta := utils.BuildPaginationMeta(c, pageInt, limitInt, total)
+	data := make([]studentresponse.StudentResponse, len(students))
+	for i, q := range students {
+		data[i] = studentresponse.ToStudentResponse(*q)
+	}
+
+	return response.PaginatedSuccess(c, http.StatusOK, "Get All Studentzes Successfully", data, meta)
+}

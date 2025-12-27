@@ -25,4 +25,6 @@ type IStudentRepository interface {
 	CreateTootBrush(ctx context.Context, studentId uuid.UUID, data *models.ToootBrushLog) error
 	CheckTootBrushExists(ctx context.Context, studentId uuid.UUID, typeTime string, logDate time.Time) (bool, error)
 	GetHistoryTootBrush(ctx context.Context, studentId uuid.UUID, typeTime string, limit int, offset int) ([]*models.ToootBrushLog, int, error)
+
+	FindAllStudents(ctx context.Context, limit, offset int, search string) ([]*models.User, int, error)
 }

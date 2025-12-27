@@ -506,3 +506,34 @@ func (s *StudentServiceImpl) GetHitoryToothBrush(ctx context.Context, studentId 
 
 	return items, total, nil
 }
+
+func (q *StudentServiceImpl) GetAllStudents(
+	ctx context.Context,
+	page int,
+	limit int,
+	search string,
+) ([]*models.User, int, error) {
+
+	offset := (page - 1) * limit
+
+	// Ambil data student langsung dari repository
+	items, total, err := q.studenRepo.FindAllStudents(
+		ctx,
+		limit,
+		offset,
+		search,
+	)
+	if err != nil {
+		return nil, 0, errorresponse.NewCustomError(
+			errorresponse.ErrInternal,
+			"failed to get students",
+			500,
+		)
+	}
+
+	if items == nil {
+		items = []*models.User{}
+	}
+
+	return items, total, nil
+}

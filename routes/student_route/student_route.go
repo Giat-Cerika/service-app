@@ -31,4 +31,5 @@ func StudentRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 	studentGroup.PUT("/edit-photo", studentHandler.EditPhotoStudent)
 	studentGroup.POST("/tooth-brush", studentHandler.CreateToothBrush)
 	studentGroup.GET("/history-tooth-brush", studentHandler.GetHistoryToothBrush)
+	studentGroup.GET("/all", studentHandler.GetStudentAll)
 }
