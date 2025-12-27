@@ -21,4 +21,7 @@ type IPredictionRepository interface {
 	GetAllPrediction(ctx context.Context, limit, offset int, search string) ([]*models.Prediction, int, error)
 	GetByIdPrediction(ctx context.Context, predictionId uuid.UUID) (*models.Prediction, error)
 	DeletePrediction(ctx context.Context, predictionId uuid.UUID) error
+
+	SendPredictToStudent(ctx context.Context, data *models.PredictHistory) error
+	GetPredictByStudent(ctx context.Context, userId uuid.UUID) ([]*models.PredictHistory, error)
 }

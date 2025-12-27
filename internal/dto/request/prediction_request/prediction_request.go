@@ -1,6 +1,10 @@
 package predictionrequest
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type CreatePredictionRequest struct {
 	PatientName      string    `json:"patient_name"`
@@ -57,4 +61,10 @@ type StimulatedSalivaRequest struct {
 	Quantity  int `json:"quantity"`
 	Ph        int `json:"ph"`
 	Buffering int `json:"buffering"`
+}
+
+type PredictToStudentRequest struct {
+	PredictionID uuid.UUID `json:"prediction_id"`
+	UserID       uuid.UUID `json:"user_id"`
+	Suggestion   string    `json:"suggestion"`
 }

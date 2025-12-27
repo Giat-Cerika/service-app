@@ -9,6 +9,7 @@ import (
 	predictionrequest "giat-cerika-service/internal/dto/request/prediction_request"
 	"giat-cerika-service/internal/models"
 	predictionrepo "giat-cerika-service/internal/repositories/prediction_repo"
+	studentrepo "giat-cerika-service/internal/repositories/student_repo"
 	errorresponse "giat-cerika-service/pkg/constant/error_response"
 	"time"
 
@@ -19,15 +20,24 @@ import (
 
 type PredictionServiceImpl struct {
 	predictionRepo predictionrepo.IPredictionRepository
+	studentRepo    studentrepo.IStudentRepository
 	rdb            *redis.Client
 }
 
-func NewPredictionServiceImpl(predicRepo predictionrepo.IPredictionRepository, rdb *redis.Client) IPredictionService {
-	return &PredictionServiceImpl{predictionRepo: predicRepo, rdb: rdb}
+func NewPredictionServiceImpl(predicRepo predictionrepo.IPredictionRepository, studentRepo studentrepo.IStudentRepository, rdb *redis.Client) IPredictionService {
+	return &PredictionServiceImpl{predictionRepo: predicRepo, studentRepo: studentRepo, rdb: rdb}
 }
 
 func (p *PredictionServiceImpl) invalidateCachePrediction(ctx context.Context) {
 	iter := p.rdb.Scan(ctx, 0, "predictions:*", 0).Iterator()
+	for iter.Next(ctx) {
+		p.rdb.Del(ctx, iter.Val())
+	}
+}
+
+func (p *PredictionServiceImpl) invalidateCacheLtmPrediction(ctx context.Context, userId uuid.UUID) {
+	pattern := fmt.Sprintf("ltm_prediction:%s:*", userId.String())
+	iter := p.rdb.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		p.rdb.Del(ctx, iter.Val())
 	}
@@ -208,4 +218,83 @@ func (p *PredictionServiceImpl) DeletePrediction(ctx context.Context, prediction
 	p.invalidateCachePrediction(ctx)
 
 	return nil
+}
+
+// SendPredictToStudent implements [IPredictionService].
+func (p *PredictionServiceImpl) SendPredictToStudent(ctx context.Context, req predictionrequest.PredictToStudentRequest) error {
+	if req.PredictionID == uuid.Nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Prediction is required", 400)
+	}
+	if req.UserID == uuid.Nil {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "User is required", 400)
+	}
+	if req.Suggestion == "" {
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Suggestion is required", 400)
+	}
+
+	prediction, err := p.predictionRepo.GetByIdPrediction(ctx, req.PredictionID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "prediction not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get prediction", 500)
+	}
+
+	user, err := p.studentRepo.FindByStudentID(ctx, req.UserID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errorresponse.NewCustomError(errorresponse.ErrNotFound, "user not found", 404)
+		}
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get user", 500)
+	}
+
+	newData := &models.PredictHistory{
+		ID:           uuid.New(),
+		PredictionID: prediction.ID,
+		UserID:       user.ID,
+		Suggestion:   req.Suggestion,
+	}
+
+	if err := p.predictionRepo.SendPredictToStudent(ctx, newData); err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to save response", 500)
+	}
+
+	return nil
+}
+
+// GetPredictionByStudent implements [IPredictionService].
+func (p *PredictionServiceImpl) GetPredictionByStudent(ctx context.Context, userId uuid.UUID) ([]*models.PredictHistory, error) {
+	cacheKey := fmt.Sprintf("ltm_prediction:%s", userId)
+	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
+		var data []*models.PredictHistory
+		if json.Unmarshal([]byte(cached), &data) == nil {
+			return data, nil
+		}
+	}
+
+	user, err := p.studentRepo.FindByStudentID(ctx, userId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorresponse.NewCustomError(errorresponse.ErrNotFound, "user not found", 404)
+		}
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get user", 500)
+	}
+
+	prediction, err := p.predictionRepo.GetPredictByStudent(ctx, user.ID)
+	if err != nil {
+		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get data prediction", 500)
+	}
+	if len(prediction) == 0 {
+		prediction = []*models.PredictHistory{}
+	}
+
+	buf, _ := json.Marshal(map[string]any{
+		"data": prediction,
+	})
+
+	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
+
+	p.invalidateCacheLtmPrediction(ctx, userId)
+
+	return prediction, nil
 }

@@ -38,6 +38,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.CariesRisk{},
 		&models.ConfidenceDetail{},
 		&models.Prediction{},
+		&models.PredictHistory{},
 	)
 }
 

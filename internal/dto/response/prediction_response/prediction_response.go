@@ -124,3 +124,31 @@ func ToPredictionResponse(p models.Prediction) PredictionResponse {
 
 	return resp
 }
+
+type PredictionByStudentResponse struct {
+	ID               uuid.UUID `json:"id"`
+	PatientName      string    `json:"patient_name"`
+	Age              int       `json:"age"`
+	DateOfEvaluation string    `json:"date_of_evaluation"`
+	Confidence       string    `json:"confidence"`
+	Result           string    `json:"result"`
+	Score            int       `json:"score"`
+	Description      string    `json:"description"`
+	Suggestion       string    `json:"suggestion"`
+	CreatedAt        string    `json:"created_at"`
+}
+
+func ToPredictionByStudentResponse(ps models.PredictHistory) PredictionByStudentResponse {
+	return PredictionByStudentResponse{
+		ID:               ps.ID,
+		PatientName:      ps.Prediction.PatientName,
+		Age:              ps.Prediction.Age,
+		DateOfEvaluation: utils.FormatDate(ps.Prediction.DateOfEvaluation),
+		Confidence:       ps.Prediction.Confidence,
+		Result:           ps.Prediction.Result,
+		Score:            ps.Prediction.Score,
+		Description:      ps.Prediction.Description,
+		Suggestion:       ps.Suggestion,
+		CreatedAt:        utils.FormatDate(ps.CreatedAt),
+	}
+}

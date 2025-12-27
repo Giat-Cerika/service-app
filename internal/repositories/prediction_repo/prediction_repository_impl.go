@@ -113,3 +113,19 @@ func (p *PredictionRepositoryImpl) GetByIdPrediction(ctx context.Context, predic
 func (p *PredictionRepositoryImpl) DeletePrediction(ctx context.Context, predictionId uuid.UUID) error {
 	return p.db.WithContext(ctx).Delete(&models.Prediction{}, "id = ?", predictionId).Error
 }
+
+// SendPredictToStudent implements [IPredictionRepository].
+func (p *PredictionRepositoryImpl) SendPredictToStudent(ctx context.Context, data *models.PredictHistory) error {
+	return p.db.WithContext(ctx).Create(data).Error
+}
+
+// GetPredictByStudent implements [IPredictionRepository].
+func (p *PredictionRepositoryImpl) GetPredictByStudent(ctx context.Context, userId uuid.UUID) ([]*models.PredictHistory, error) {
+	var ph []*models.PredictHistory
+
+	if err := p.db.WithContext(ctx).Model(&models.PredictHistory{}).Where("user_id = ?", userId).Preload("Prediction").Preload("User").Find(&ph).Error; err != nil {
+		return nil, err
+	}
+
+	return ph, nil
+}

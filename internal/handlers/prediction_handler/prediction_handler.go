@@ -73,3 +73,43 @@ func (ph *PredictionHandler) DeletePrediction(c echo.Context) error {
 
 	return response.Success(c, http.StatusOK, "Deleted Prediction Successfully", nil)
 }
+
+func (ph *PredictionHandler) SendPredictToStudent(c echo.Context) error {
+	var req predictionrequest.PredictToStudentRequest
+	if err := c.Bind(&req); err != nil {
+		return response.Error(c, http.StatusBadRequest, "bad request", err.Error())
+	}
+
+	err := ph.service.SendPredictToStudent(c.Request().Context(), req)
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to save data", 500)
+	}
+
+	return response.Success(c, http.StatusCreated, "Save data LTM Successfully", nil)
+}
+
+func (ph *PredictionHandler) GetPredictByStudent(c echo.Context) error {
+	claims, err := utils.GetClaimsFromContext(c)
+	if err != nil {
+		return response.Error(c, http.StatusUnauthorized, "Unauthorized: "+err.Error(), nil)
+	}
+	studentId := claims.UserID
+
+	items, err := ph.service.GetPredictionByStudent(c.Request().Context(), uuid.MustParse(studentId))
+	if err != nil {
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err)
+		}
+		return response.Error(c, http.StatusInternalServerError, "failed to get data", 500)
+	}
+
+	data := make([]predictionresponse.PredictionByStudentResponse, len(items))
+	for i, ps := range items {
+		data[i] = predictionresponse.ToPredictionByStudentResponse(*ps)
+	}
+
+	return response.Success(c, http.StatusOK, "get ltm response successfully", data)
+}
