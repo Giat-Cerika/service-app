@@ -7,6 +7,7 @@ import (
 	classrepo "giat-cerika-service/internal/repositories/class_repo"
 	studentrepo "giat-cerika-service/internal/repositories/student_repo"
 	studentservice "giat-cerika-service/internal/services/student_service"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
@@ -31,5 +32,8 @@ func StudentRoutes(e *echo.Group, db *gorm.DB, rdb *redis.Client, cld *datasourc
 	studentGroup.PUT("/edit-photo", studentHandler.EditPhotoStudent)
 	studentGroup.POST("/tooth-brush", studentHandler.CreateToothBrush)
 	studentGroup.GET("/history-tooth-brush", studentHandler.GetHistoryToothBrush)
-	studentGroup.GET("/all", studentHandler.GetStudentAll)
+
+	studentGroups := e.Group("", middlewares.JWTMiddleware(rdb), middlewares.RoleMiddleware(strings.ToLower("ADMIN")))
+	studentGroups.GET("/all", studentHandler.GetStudentAll)
+
 }
