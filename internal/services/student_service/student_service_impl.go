@@ -17,6 +17,7 @@ import (
 	"giat-cerika-service/pkg/workers/payload"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"strings"
 	"time"
 
@@ -507,33 +508,16 @@ func (s *StudentServiceImpl) GetHitoryToothBrush(ctx context.Context, studentId 
 	return items, total, nil
 }
 
-func (q *StudentServiceImpl) GetAllStudents(
-	ctx context.Context,
-	page int,
-	limit int,
-	search string,
-) ([]*models.User, int, error) {
-
-	offset := (page - 1) * limit
-
-	// Ambil data student langsung dari repository
-	items, total, err := q.studenRepo.FindAllStudents(
-		ctx,
-		limit,
-		offset,
-		search,
-	)
+func (s *StudentServiceImpl) GetAllStudents(ctx context.Context, search string) ([]*models.User, int, error) {
+	students, total, err := s.studenRepo.GetAllStudents(ctx, search)
 	if err != nil {
 		return nil, 0, errorresponse.NewCustomError(
 			errorresponse.ErrInternal,
 			"failed to get students",
-			500,
-		)
+			http.StatusInternalServerError)
 	}
-
-	if items == nil {
-		items = []*models.User{}
+	if students == nil {
+		students = []*models.User{}
 	}
-
-	return items, total, nil
+	return students, total, nil
 }

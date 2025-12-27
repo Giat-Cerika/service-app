@@ -22,6 +22,15 @@ type StudentResponse struct {
 	UpdatedAt   string    `json:"updated_at"`
 }
 
+type AllStudentResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Username    string    `json:"username"`
+	Nisn        string    `json:"nisn"`
+	CreatedAt   string    `json:"created_at"`
+	UpdatedAt   string    `json:"updated_at"`
+}
+
 func ToStudentResponse(student models.User) StudentResponse {
 	return StudentResponse{
 		ID:          student.ID,
@@ -36,5 +45,26 @@ func ToStudentResponse(student models.User) StudentResponse {
 		Status:      student.Status,
 		CreatedAt:   utils.FormatDate(student.CreatedAt),
 		UpdatedAt:   utils.FormatDate(student.UpdatedAt),
+	}
+}
+
+func ToAllStudentResponse(student models.User) AllStudentResponse {
+	var name, nisn string
+
+	if student.Name != nil {
+		name = *student.Name
+	}
+
+	if student.Nisn != nil {
+		nisn = *student.Nisn
+	}
+
+	return AllStudentResponse{
+		ID:        student.ID,
+		Name:      name,
+		Username:  student.Username,
+		Nisn:      nisn,
+		CreatedAt: utils.FormatDate(student.CreatedAt),
+		UpdatedAt: utils.FormatDate(student.UpdatedAt),
 	}
 }

@@ -300,21 +300,20 @@ func (s *StudentHandler) GetHistoryToothBrush(c echo.Context) error {
 }
 
 func (q *StudentHandler) GetStudentAll(c echo.Context) error {
-	pageInt, limitInt := utils.ParsePaginationParams(c, 10)
 	search := c.QueryParam("search")
+	students, _, err := q.studentService.GetAllStudents(c.Request().Context(), search)
 
-	students, total, err := q.studentService.GetAllStudents(c.Request().Context(), pageInt, limitInt, search)
 	if err != nil {
-		if cutomErr, ok := errorresponse.AsCustomErr(err); ok {
-			return response.Error(c, cutomErr.Status, cutomErr.Msg, cutomErr.Err.Error())
+		if customErr, ok := errorresponse.AsCustomErr(err); ok {
+			return response.Error(c, customErr.Status, customErr.Msg, customErr.Err.Error())
 		}
 		return response.Error(c, http.StatusInternalServerError, "failed to get students", err.Error())
 	}
-	meta := utils.BuildPaginationMeta(c, pageInt, limitInt, total)
-	data := make([]studentresponse.StudentResponse, len(students))
-	for i, q := range students {
-		data[i] = studentresponse.ToStudentResponse(*q)
+
+	data := make([]studentresponse.AllStudentResponse, len(students))
+	for i, s := range students {
+		data[i] = studentresponse.ToAllStudentResponse(*s)
 	}
 
-	return response.PaginatedSuccess(c, http.StatusOK, "Get All Studentzes Successfully", data, meta)
+	return response.Success(c, http.StatusOK, "Get All Students Successfully", data)
 }
