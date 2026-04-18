@@ -23,7 +23,7 @@ func main() {
 	e := echo.New()
 	// e.Use(middlewares.LoggerMiddleware)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: []string{"*", "https://website-giat-cerika.vercel.app"},
 		AllowMethods: []string{
 			echo.GET,
 			echo.POST,
