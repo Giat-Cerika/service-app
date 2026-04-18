@@ -81,6 +81,23 @@ func (s *StudentRepositoryImpl) FindByStudentID(ctx context.Context, studentID u
 	return &student, nil
 }
 
+// FindByUserIDs implements IStudentRepository.
+// Mengambil banyak user sekaligus dengan satu query WHERE id IN (...)
+// agar service layer tidak perlu melakukan query satu-per-satu (N+1).
+func (s *StudentRepositoryImpl) FindByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]*models.User, error) {
+	if len(userIDs) == 0 {
+		return []*models.User{}, nil
+	}
+	var users []*models.User
+	if err := s.db.WithContext(ctx).
+		Preload("Class").
+		Where("id IN ?", userIDs).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 // CheckNisnAndDateOfBirth implements IStudentRepository.
 func (s *StudentRepositoryImpl) CheckNisnAndDateOfBirth(ctx context.Context, nisn string, dateOfBirth time.Time) (*models.User, error) {
 	var student models.User

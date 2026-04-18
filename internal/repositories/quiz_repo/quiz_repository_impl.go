@@ -52,6 +52,22 @@ func (q *QuizRepositoryImpl) FindById(ctx context.Context, quizId uuid.UUID) (*m
 	return &quiz, nil
 }
 
+// FindByIds implements IQuizRepository.
+// Mengambil banyak quiz sekaligus dengan satu query WHERE id IN (...)
+// agar service layer tidak perlu melakukan query satu-per-satu (N+1).
+func (q *QuizRepositoryImpl) FindByIds(ctx context.Context, quizIds []uuid.UUID) ([]*models.Quiz, error) {
+	if len(quizIds) == 0 {
+		return []*models.Quiz{}, nil
+	}
+	var quizzes []*models.Quiz
+	if err := q.db.WithContext(ctx).
+		Where("id IN ?", quizIds).
+		Find(&quizzes).Error; err != nil {
+		return nil, err
+	}
+	return quizzes, nil
+}
+
 // Update implements IQuizRepository.
 func (q *QuizRepositoryImpl) Update(ctx context.Context, quizId uuid.UUID, data *models.Quiz) error {
 	return q.db.WithContext(ctx).Save(data).Error

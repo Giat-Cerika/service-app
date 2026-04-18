@@ -59,15 +59,32 @@ func (q QuizHistoryServiceImpl) GetHistoryQuizStudent(
 		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get history quiz student", 500)
 	}
 
+	// --- Kumpulkan semua quiz ID unik dari seluruh history ---
+	// Lalu ambil sekaligus dalam 1 query (menghindari N+1).
+	quizIDSet := make(map[uuid.UUID]struct{}, len(items))
+	for _, h := range items {
+		quizIDSet[h.QuizID] = struct{}{}
+	}
+	quizIDs := make([]uuid.UUID, 0, len(quizIDSet))
+	for id := range quizIDSet {
+		quizIDs = append(quizIDs, id)
+	}
+	quizList, _ := q.quizRepo.FindByIds(ctx, quizIDs)
+	// Bangun map QuizID → AmountAssigned untuk lookup O(1)
+	quizMap := make(map[uuid.UUID]int, len(quizList))
+	for _, qz := range quizList {
+		quizMap[qz.ID] = qz.AmountAssigned
+	}
+
 	res := make([]quizhistoryresponse.QuizHistoryResponse, 0, len(items))
 
 	for _, h := range items {
-		// snapshot
+		// snapshot sebagai default
 		currentAssigned := h.AmountAssigned
 
-		// kalau quiz masih ada → pakai global
-		if quiz, err := q.quizRepo.FindById(ctx, h.QuizID); err == nil {
-			currentAssigned = quiz.AmountAssigned
+		// kalau quiz masih ada di DB → pakai nilai global (dari map, O(1))
+		if assigned, ok := quizMap[h.QuizID]; ok {
+			currentAssigned = assigned
 		}
 
 		res = append(res, quizhistoryresponse.QuizHistoryResponse{
@@ -90,9 +107,7 @@ func (q QuizHistoryServiceImpl) GetHistoryQuizStudent(
 		})
 	}
 
-	buf, _ := json.Marshal(map[string]any{
-		"data": res,
-	})
+	buf, _ := json.Marshal(res)
 	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
 
 	return res, nil
@@ -149,6 +164,36 @@ func (q *QuizHistoryServiceImpl) GetHistoryQuizByQuizID(ctx context.Context) ([]
 		return nil, errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get history quiz student", 500)
 	}
 
+	// --- Kumpulkan semua quiz ID & user ID unik ---
+	// Ambil sekaligus dalam 2 query bulk (menggantikan N+1+N+1).
+	quizIDSet := make(map[uuid.UUID]struct{}, len(items))
+	userIDSet := make(map[uuid.UUID]struct{}, len(items))
+	for _, h := range items {
+		quizIDSet[h.QuizID] = struct{}{}
+		userIDSet[h.UserID] = struct{}{}
+	}
+
+	quizIDs := make([]uuid.UUID, 0, len(quizIDSet))
+	for id := range quizIDSet {
+		quizIDs = append(quizIDs, id)
+	}
+	userIDs := make([]uuid.UUID, 0, len(userIDSet))
+	for id := range userIDSet {
+		userIDs = append(userIDs, id)
+	}
+
+	quizList, _ := q.quizRepo.FindByIds(ctx, quizIDs)
+	quizMap := make(map[uuid.UUID]*models.Quiz, len(quizList))
+	for _, qz := range quizList {
+		quizMap[qz.ID] = qz
+	}
+
+	studentList, _ := q.studentRepo.FindByUserIDs(ctx, userIDs)
+	studentMap := make(map[uuid.UUID]*models.User, len(studentList))
+	for _, s := range studentList {
+		studentMap[s.ID] = s
+	}
+
 	grouped := make(map[uuid.UUID]*quizhistoryresponse.QuizHistoryGroupAdminResponse)
 
 	for _, h := range items {
@@ -156,9 +201,8 @@ func (q *QuizHistoryServiceImpl) GetHistoryQuizByQuizID(ctx context.Context) ([]
 
 		// ===== INIT GROUP (1 QUIZ) =====
 		if _, ok := grouped[quizID]; !ok {
-
-			quiz, err := q.quizRepo.FindById(ctx, quizID)
-			if err != nil {
+			quiz, exists := quizMap[quizID]
+			if !exists {
 				continue
 			}
 
@@ -173,8 +217,8 @@ func (q *QuizHistoryServiceImpl) GetHistoryQuizByQuizID(ctx context.Context) ([]
 		}
 
 		// ===== DETAIL HISTORY =====
-		student, err := q.studentRepo.FindByStudentID(ctx, h.UserID)
-		if err != nil {
+		student, exists := studentMap[h.UserID]
+		if !exists {
 			continue
 		}
 
@@ -202,9 +246,7 @@ func (q *QuizHistoryServiceImpl) GetHistoryQuizByQuizID(ctx context.Context) ([]
 		result = append(result, *v)
 	}
 
-	buf, _ := json.Marshal(map[string]any{
-		"data": result,
-	})
+	buf, _ := json.Marshal(result)
 	_ = configs.SetRedis(ctx, cacheKey, buf, time.Minute*30)
 
 	return result, nil
