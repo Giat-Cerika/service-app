@@ -153,7 +153,7 @@ func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.Re
 				ID:        newStudent.ID,
 				Type:      "single",
 				FileBytes: binner,
-				Folder:    "giat_ceria/photo_student",
+				Folder:    "giat_cerika/photo_student",
 				Filename:  fmt.Sprintf("student_%s_photo", newStudent.ID.String()),
 			}
 
@@ -385,7 +385,7 @@ func (s *StudentServiceImpl) UpdatePhotoStudent(ctx context.Context, studentId u
 				ID:        student.ID,
 				Type:      "single",
 				FileBytes: bin,
-				Folder:    "giat_ceria/photo_student",
+				Folder:    "giat_cerika/photo_student",
 				Filename:  fmt.Sprintf("student_%s_photo", studentId.String()),
 			}
 			_ = rabbitmq.PublishToQueue("", rabbitmq.SendImageProfileStudentQueueName, task)

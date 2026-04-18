@@ -135,7 +135,7 @@ func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionre
 				ID:        question.ID,
 				Type:      "single",
 				FileBytes: bin,
-				Folder:    "giat_ceria/questions",
+				Folder:    "giat_cerika/questions",
 				Filename:  fmt.Sprintf("question_%s_image", question.ID.String()),
 			})
 		}
@@ -287,7 +287,7 @@ func (q *QuestionServiceImpl) UpdateQuestion(ctx context.Context, questionId uui
 				ID:        question.ID,
 				Type:      "single",
 				FileBytes: bin,
-				Folder:    "giat_ceria/questions",
+				Folder:    "giat_cerika/questions",
 				Filename:  fmt.Sprintf("question_%s_image", question.ID.String()),
 			})
 		}

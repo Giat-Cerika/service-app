@@ -116,7 +116,7 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, adminId uuid.U
 				ID:        materi.ID,
 				Type:      "single",
 				FileBytes: bin,
-				Folder:    "giat_ceria/materials",
+				Folder:    "giat_cerika/materials",
 				Filename:  fmt.Sprintf("materi_%s_cover", materi.ID.String()),
 			})
 		}
@@ -130,7 +130,7 @@ func (c *MaterialServiceImpl) CreateMaterial(ctx context.Context, adminId uuid.U
 				ID:        materi.ID,
 				Type:      "many",
 				FileBytes: bin,
-				Folder:    "giat_ceria/materials",
+				Folder:    "giat_cerika/materials",
 				Filename:  fmt.Sprintf("materi_%s_gallery_%d", materi.ID, i+1),
 			})
 
@@ -232,7 +232,7 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 				ID:        material.ID,
 				Type:      "single",
 				FileBytes: bin,
-				Folder:    "giat_ceria/materials",
+				Folder:    "giat_cerika/materials",
 				Filename:  fmt.Sprintf("materi_%s_cover", material.ID.String()),
 			})
 		}
@@ -271,7 +271,7 @@ func (c *MaterialServiceImpl) UpdateMaterial(ctx context.Context, materialId uui
 					ID:        material.ID,
 					Type:      "many",
 					FileBytes: bin,
-					Folder:    "giat_ceria/materials",
+					Folder:    "giat_cerika/materials",
 					// gunakan String() + index + timestamp supaya unik
 					Filename: fmt.Sprintf("materi_%s_gallery_%d_%d", material.ID.String(), i+1, time.Now().UnixNano()),
 				})

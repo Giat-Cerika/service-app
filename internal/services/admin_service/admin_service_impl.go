@@ -102,7 +102,7 @@ func (a *AdminServiceImpl) Register(ctx context.Context, req adminrequest.Regist
 				ID:        admin.ID,
 				Type:      "single",
 				FileBytes: binner,
-				Folder:    "giat_ceria/photo_admin",
+				Folder:    "giat_cerika/photo_admin",
 				Filename:  fmt.Sprintf("admin_%s_photo", admin.ID.String()),
 			}
 
