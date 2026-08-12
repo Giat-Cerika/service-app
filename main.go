@@ -34,7 +34,7 @@ func main() {
 	// 2. Request Timeout — 30 detik maks per request
 	//    Mencegah koneksi menggantung dan menghabiskan resource
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		Timeout: 30 * time.Second,
+		Timeout:      30 * time.Second,
 		ErrorMessage: "request timeout, silakan coba lagi",
 	}))
 

@@ -256,9 +256,6 @@ func (q *QuizSessionServiceImpl) StartQuizSession(
 	}
 
 	// =========================
-	// DURASI & END TIME
-	// =========================
-	// =========================
 	// DURASI & END TIME (FIXED)
 	// =========================
 	var durationSeconds int64
@@ -437,7 +434,11 @@ func (q *QuizSessionServiceImpl) SubmtiQuizSession(ctx context.Context, userId u
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to get quiz session", 500)
 	}
 	if quizSession.Status == models.SessionStatusCompleted {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "quiz already submitted", 400)
+		// 💡 IDEMPOTENCY FIX: Jika quiz session sudah completed (misal karena submit pertama
+		// sukses di database tetapi respon HTTP ke aplikasi mobile terputus koneksi),
+		// kembalikan nil (HTTP 200 OK) agar retry submit dari aplikasi mobile tetap dianggap SUKSES
+		// tanpa menampilkan popup error / gagal.
+		return nil
 	}
 
 	quiz, err := q.quizRepo.FindById(ctx, quizSession.QuizID)

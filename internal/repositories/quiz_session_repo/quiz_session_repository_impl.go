@@ -108,22 +108,15 @@ func (q *QuizSessionRepositoryImpl) SaveQuizHistoryTransaction(ctx context.Conte
 
 		// 2. Simpan QuestionHistories (Bulk Insert)
 		if len(questionHistories) > 0 {
-			// Karena QuestionHistory adalah relasi Many-to-One ke QuizHistory,
-			// dan ID QuizHistory sudah ada, kita bisa langsung simpan.
 			if err := tx.Create(&questionHistories).Error; err != nil {
 				return err // Akan memicu rollback
 			}
 		} else {
-			// Seharusnya tidak terjadi, tapi jika tidak ada pertanyaan
 			return gorm.ErrInvalidData
 		}
 
 		// 3. Simpan AnswerHistories (Bulk Insert)
 		if len(answerHistories) > 0 {
-			// Karena AnswerHistory adalah relasi Many-to-One ke QuestionHistory,
-			// dan ID QuestionHistory sudah ada, kita bisa langsung simpan.
-			// Bulk insert AnswerHistory mungkin memakan waktu lama jika kuis besar.
-			// Anda mungkin ingin menggunakan CreateInBatches(data, N) untuk performa.
 			if err := tx.Create(&answerHistories).Error; err != nil {
 				return err // Akan memicu rollback
 			}
@@ -183,13 +176,11 @@ func (q *QuizSessionRepositoryImpl) FindCompleteStatusQuizSession(ctx context.Co
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// ❗️artinya BELUM PERNAH COMPLETE
 			return false, nil
 		}
 		return false, err
 	}
 
-	// ketemu → sudah complete
 	return true, nil
 }
 

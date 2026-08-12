@@ -64,14 +64,6 @@ func GetDB() *gorm.DB {
 // RunTransaction adalah helper untuk menjalankan fungsi di dalam DB transaction.
 // Jika fn mengembalikan error, transaction di-rollback secara otomatis.
 // Jika fn berhasil (return nil), transaction di-commit.
-//
-// Contoh penggunaan di service:
-//
-//	err := configs.RunTransaction(ctx, func(tx *gorm.DB) error {
-//	    if err := tx.Create(&data1).Error; err != nil { return err }
-//	    if err := tx.Create(&data2).Error; err != nil { return err }
-//	    return nil
-//	})
 func RunTransaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
 	return DB.WithContext(ctx).Transaction(fn)
 }
