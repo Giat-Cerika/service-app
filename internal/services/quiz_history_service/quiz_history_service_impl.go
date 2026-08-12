@@ -152,7 +152,7 @@ func (q *QuizHistoryServiceImpl) GetAllHistoryQuestionByQuizHistory(ctx context.
 
 // GetHistoryQuizByQuizID implements [IQuizHistoryService].
 func (q *QuizHistoryServiceImpl) GetHistoryQuizByQuizID(ctx context.Context) ([]quizhistoryresponse.QuizHistoryGroupAdminResponse, error) {
-	cacheKey := fmt.Sprintln("quizHistory:all")
+	cacheKey := "quizHistory:all"
 	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
 		var data []quizhistoryresponse.QuizHistoryGroupAdminResponse
 		if json.Unmarshal([]byte(cached), &data) == nil {

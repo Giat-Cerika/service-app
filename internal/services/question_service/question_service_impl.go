@@ -94,6 +94,8 @@ var PublishImageQuestion = func(p payload.ImageUploadPayload) {
 }
 
 // CreateQuestion implements IQuestionService.
+// Menggunakan transaction: jika salah satu answer gagal disimpan,
+// question juga di-rollback → tidak ada data orphan.
 func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionrequest.CreateQuestionRequest) error {
 	quiz, err := q.quizRepo.FindById(ctx, req.QuizId)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -118,10 +120,30 @@ func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionre
 		QuestionText: req.QuestionText,
 	}
 
-	if err := q.questionRepo.CreateQuestion(ctx, question); err != nil {
+	// ── Transaction: simpan question + answers secara atomik ──
+	if err := configs.RunTransaction(ctx, func(tx *gorm.DB) error {
+		if err := tx.Create(question).Error; err != nil {
+			return err
+		}
+
+		for _, ansReq := range req.Answers {
+			answer := &models.Answer{
+				ID:         uuid.New(),
+				QuestionID: question.ID,
+				AnswerText: ansReq.AnswerText,
+				ScoreValue: ansReq.ScoreValue,
+			}
+			if err := tx.Create(answer).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}); err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create question", 500)
 	}
 
+	// ── Async: increment counter & upload image (di luar transaction) ──
 	go func(quizId uuid.UUID) {
 		ctxBg := context.Background()
 		if err := q.quizRepo.IncreamentAmountQuestion(ctxBg, quizId); err != nil {
@@ -138,18 +160,6 @@ func (q *QuestionServiceImpl) CreateQuestion(ctx context.Context, req questionre
 				Folder:    "giat_cerika/questions",
 				Filename:  fmt.Sprintf("question_%s_image", question.ID.String()),
 			})
-		}
-	}
-
-	for _, ansReq := range req.Answers {
-		answer := &models.Answer{
-			ID:         uuid.New(),
-			QuestionID: question.ID,
-			AnswerText: ansReq.AnswerText,
-			ScoreValue: ansReq.ScoreValue,
-		}
-		if err := q.answerRepo.CreateAnswer(ctx, answer); err != nil {
-			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create answer", 500)
 		}
 	}
 
@@ -293,28 +303,34 @@ func (q *QuestionServiceImpl) UpdateQuestion(ctx context.Context, questionId uui
 		}
 	}
 
-	if len(req.Answers) > 0 {
-		// Delete old answers
-		if err := q.answerRepo.DeleteByQuestionID(ctx, question.ID); err != nil {
-			return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to delete old answers", 500)
+	// ── Transaction: update question + replace answers secara atomik ──
+	if err := configs.RunTransaction(ctx, func(tx *gorm.DB) error {
+		// Update question text/quiz_id
+		if err := tx.Model(&models.Question{}).Where("id = ?", questionId).Updates(question).Error; err != nil {
+			return err
 		}
 
-		// Insert new answers
-		for _, ans := range req.Answers {
-			newAnswer := &models.Answer{
-				ID:         uuid.New(),
-				QuestionID: question.ID,
-				AnswerText: ans.AnswerText,
-				ScoreValue: ans.ScoreValue,
+		// Replace answers (delete old + insert new) jika ada
+		if len(req.Answers) > 0 {
+			if err := tx.Where("question_id = ?", question.ID).Delete(&models.Answer{}).Error; err != nil {
+				return err
 			}
 
-			if err := q.answerRepo.CreateAnswer(ctx, newAnswer); err != nil {
-				return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to create answer", 500)
+			for _, ans := range req.Answers {
+				newAnswer := &models.Answer{
+					ID:         uuid.New(),
+					QuestionID: question.ID,
+					AnswerText: ans.AnswerText,
+					ScoreValue: ans.ScoreValue,
+				}
+				if err := tx.Create(newAnswer).Error; err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	if err := q.questionRepo.UpdateQuestion(ctx, questionId, question); err != nil {
+		return nil
+	}); err != nil {
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to update question", 500)
 	}
 

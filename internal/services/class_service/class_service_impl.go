@@ -190,7 +190,7 @@ func (c *ClassServiceImpl) DeleteClass(ctx context.Context, classId uuid.UUID) e
 
 // GetAllPublic implements IClassService.
 func (c *ClassServiceImpl) GetAllPublic(ctx context.Context) ([]*models.Class, error) {
-	cacheKey := fmt.Sprintln("classes:public")
+	cacheKey := "classes:public"
 	if cached, err := configs.GetRedis(ctx, cacheKey); err == nil && len(cached) > 0 {
 		var classes []*models.Class
 		if json.Unmarshal([]byte(cached), &classes) == nil {

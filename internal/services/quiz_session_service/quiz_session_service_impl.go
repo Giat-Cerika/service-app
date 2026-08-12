@@ -32,18 +32,19 @@ func NewQuizSessionServiceImpl(qsRepo quizsessionrepo.IQuizSessionRepository, qu
 }
 
 func (q *QuizSessionServiceImpl) invalidateCacheQuiz(ctx context.Context) {
-	iter := q.rdb.Scan(ctx, 0, "quizzes:*", 0).Iterator()
-	for iter.Next(ctx) {
-		q.rdb.Del(ctx, iter.Val())
+	patterns := []string{
+		"quizzes:*",
+		"quiz:*",
+		"quizzes_available:*",
+		"quizHistory:*",
+		"questions_history:*",
+		"quiz_session:*",
 	}
-
-	iterID := q.rdb.Scan(ctx, 0, "quiz:*", 0).Iterator()
-	for iterID.Next(ctx) {
-		q.rdb.Del(ctx, iterID.Val())
-	}
-	iterPublic := q.rdb.Scan(ctx, 0, "quizzes_available:*", 0).Iterator()
-	for iterPublic.Next(ctx) {
-		q.rdb.Del(ctx, iterPublic.Val())
+	for _, pattern := range patterns {
+		iter := q.rdb.Scan(ctx, 0, pattern, 0).Iterator()
+		for iter.Next(ctx) {
+			q.rdb.Del(ctx, iter.Val())
+		}
 	}
 }
 
@@ -417,6 +418,9 @@ func (q *QuizSessionServiceImpl) GetQuizSessionDuration(ctx context.Context, use
 }
 
 // SubmtiQuizSession implements [IQuizSessionService].
+// Seluruh operasi submit (simpan jawaban + complete session + simpan history)
+// dikerjakan dalam SATU transaksi database.
+// Jika terjadi error / timeout di tengah jalan, seluruh data di-ROLLBACK.
 func (q *QuizSessionServiceImpl) SubmtiQuizSession(ctx context.Context, userId uuid.UUID, quizSessionId uuid.UUID, req quizrequest.SubmitQuizRequest) error {
 	student, err := q.studentRepo.FindByStudentID(ctx, userId)
 	if err != nil {
@@ -449,11 +453,12 @@ func (q *QuizSessionServiceImpl) SubmtiQuizSession(ctx context.Context, userId u
 		return errorresponse.NewCustomError(errorresponse.ErrInternal, "quiz has no question", 500)
 	}
 
+	// ── Hitung score ──
 	var responseToSave []*models.Response
 	var totalScore int
 	var maxScore int
 
-	submittedAnswers := make(map[uuid.UUID]uuid.UUID)
+	submittedAnswers := make(map[uuid.UUID]uuid.UUID, len(req.Answers))
 	for _, sub := range req.Answers {
 		submittedAnswers[sub.QuestionID] = sub.AnswerID
 	}
@@ -502,41 +507,33 @@ func (q *QuizSessionServiceImpl) SubmtiQuizSession(ctx context.Context, userId u
 		}
 	}
 
+	// ── Hapus timer Redis ──
 	redisKey := fmt.Sprintf("quiz_session:%s:duration", quizSessionId.String())
 	q.rdb.Del(ctx, redisKey)
 
-	if err := q.quizSessionRepo.BulkSaveResponses(ctx, quizSessionId, responseToSave); err != nil {
-		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to save quiz responses", 500)
-	}
-
+	// ── Hitung persentase & status ──
 	percentage := 0.0
 	if maxScore > 0 {
 		percentage = float64(totalScore) / float64(maxScore) * 100
 	}
 
-	quizHistoryStatus := 1
+	quizHistoryStatus := 0
 	if percentage < 40.0 {
 		quizHistoryStatus = 3
-	} else if percentage > 40.0 && percentage <= 60.0 {
+	} else if percentage <= 60.0 {
 		quizHistoryStatus = 2
-	} else if percentage > 60.0 {
-		quizHistoryStatus = 1
 	} else {
-		quizHistoryStatus = 0
+		quizHistoryStatus = 1
 	}
 
 	completedAt := time.Now()
-
-	err = q.quizSessionRepo.CompleteQuizSession(ctx, quizSessionId, totalScore, maxScore, &completedAt)
-	if err != nil {
-		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to submit quiz", 500)
-	}
 
 	startedAtTime := time.Time{}
 	if quizSession.StartedAt != nil {
 		startedAtTime = *quizSession.StartedAt
 	}
 
+	// ── Bangun data history ──
 	quizHistory := models.QuizHistory{
 		ID:              uuid.New(),
 		QuizID:          quizSession.QuizID,
@@ -609,8 +606,22 @@ func (q *QuizSessionServiceImpl) SubmtiQuizSession(ctx context.Context, userId u
 		}
 	}
 
-	if err := q.quizSessionRepo.SaveQuizHistoryTransaction(ctx, &quizHistory, questionHistories, answerHistories); err != nil {
-		fmt.Println("failed to save quiz history:", err)
+	// ════════════════════════════════════════════════════════
+	// SATU TRANSAKSI ATOMIK untuk seluruh operasi database.
+	// Jika timeout / error → ROLLBACK otomatis → data aman.
+	// ════════════════════════════════════════════════════════
+	if err := q.quizSessionRepo.SubmitQuizTransaction(
+		ctx,
+		quizSessionId,
+		responseToSave,
+		totalScore,
+		maxScore,
+		&completedAt,
+		&quizHistory,
+		questionHistories,
+		answerHistories,
+	); err != nil {
+		return errorresponse.NewCustomError(errorresponse.ErrInternal, "failed to submit quiz", 500)
 	}
 
 	q.invalidateCacheQuiz(ctx)

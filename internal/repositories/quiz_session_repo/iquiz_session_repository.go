@@ -27,4 +27,19 @@ type IQuizSessionRepository interface {
 
 	FindQuizSessionByQuiz(ctx context.Context) ([]models.QuizSession, error)
 	FindCompleteStatusQuizSession(ctx context.Context, userId uuid.UUID, quizId uuid.UUID) (bool, error)
+
+	// SubmitQuizTransaction membungkus seluruh proses submit quiz
+	// (simpan responses + complete session + simpan history) dalam SATU transaksi.
+	// Jika salah satu gagal / timeout, SEMUA di-rollback → aman dari double data.
+	SubmitQuizTransaction(
+		ctx context.Context,
+		quizSessionId uuid.UUID,
+		responses []*models.Response,
+		score int,
+		maxScore int,
+		completedAt *time.Time,
+		quizHistory *models.QuizHistory,
+		questionHistories []models.QuestionHistory,
+		answerHistories []models.AnswerHistory,
+	) error
 }

@@ -6,7 +6,9 @@ import (
 	"giat-cerika-service/pkg/workers/producer"
 	"giat-cerika-service/routes"
 	"log"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -21,7 +23,57 @@ func main() {
 	configs.RunMigrations(db)
 
 	e := echo.New()
-	// e.Use(middlewares.LoggerMiddleware)
+
+	// ================================================================
+	// MIDDLEWARE STACK — urutan penting!
+	// ================================================================
+
+	// 1. Recover — tangkap panic agar server tidak crash
+	e.Use(middleware.Recover())
+
+	// 2. Request Timeout — 30 detik maks per request
+	//    Mencegah koneksi menggantung dan menghabiskan resource
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		Timeout: 30 * time.Second,
+		ErrorMessage: "request timeout, silakan coba lagi",
+	}))
+
+	// 3. Body Limit — maksimal 10MB per request
+	//    Mencegah upload besar yang bisa menghabiskan RAM
+	e.Use(middleware.BodyLimit("10M"))
+
+	// 4. Gzip — kompresi response untuk hemat bandwidth
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Level: 5,
+	}))
+
+	// 5. Rate Limiter — mencegah abuse/DDoS
+	//    20 request/detik per IP (cukup untuk 300 user)
+	e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Skipper: middleware.DefaultSkipper,
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{
+				Rate:      20,
+				Burst:     40,
+				ExpiresIn: 3 * time.Minute,
+			},
+		),
+		IdentifierExtractor: func(ctx echo.Context) (string, error) {
+			return ctx.RealIP(), nil
+		},
+		ErrorHandler: func(context echo.Context, err error) error {
+			return context.JSON(http.StatusForbidden, map[string]string{
+				"message": "terlalu banyak request, coba lagi nanti",
+			})
+		},
+		DenyHandler: func(context echo.Context, identifier string, err error) error {
+			return context.JSON(http.StatusTooManyRequests, map[string]string{
+				"message": "terlalu banyak request, coba lagi nanti",
+			})
+		},
+	}))
+
+	// 6. CORS
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*", "https://website-giat-cerika.vercel.app"},
 		AllowMethods: []string{
@@ -30,7 +82,7 @@ func main() {
 			echo.PUT,
 			echo.DELETE,
 			echo.PATCH,
-			echo.OPTIONS, // 🔥 INI YANG KURANG
+			echo.OPTIONS,
 		},
 		AllowHeaders: []string{
 			echo.HeaderOrigin,
@@ -60,5 +112,18 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	log.Fatal(e.Start(":" + port))
+
+	// ================================================================
+	// HTTP SERVER — tuning untuk high concurrency
+	// ================================================================
+	s := &http.Server{
+		Addr:         ":" + port,
+		Handler:      e,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	log.Printf("🚀 Server starting on port %s", port)
+	log.Fatal(e.StartServer(s))
 }

@@ -88,7 +88,7 @@ func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.Re
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Confirm Password is required", 400)
 	}
 	if req.Password != req.ConfirmPassword {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Password and Confirm Password doesn't match", 409)
+		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Password dan konfirmasi password tidak cocok", 400)
 	}
 	if strings.TrimSpace(req.Nisn) == "" {
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Nisn is required", 400)
@@ -96,20 +96,28 @@ func (s *StudentServiceImpl) Register(ctx context.Context, req studentrequest.Re
 	if req.DateOfBirth.IsZero() {
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Date Of Birth is required", 400)
 	}
+	if req.Age == nil && !req.DateOfBirth.IsZero() {
+		now := time.Now()
+		age := now.Year() - req.DateOfBirth.Year()
+		if now.YearDay() < req.DateOfBirth.YearDay() {
+			age--
+		}
+		if age < 0 {
+			age = 0
+		}
+		req.Age = &age
+	}
 	if req.Age == nil {
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Age is required", 400)
-	}
-	if req.Photo == nil {
-		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "Photo is required", 400)
 	}
 	if req.ClassID == uuid.Nil {
 		return errorresponse.NewCustomError(errorresponse.ErrBadRequest, "class is required", 400)
 	}
 	if uniqueUsername != "" {
-		return errorresponse.NewCustomError(errorresponse.ErrExists, "Username already exists", 409)
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "Username sudah terdaftar", 409)
 	}
 	if uniqueNisn != "" {
-		return errorresponse.NewCustomError(errorresponse.ErrExists, "Nisn already exists", 409)
+		return errorresponse.NewCustomError(errorresponse.ErrExists, "NISN sudah terdaftar", 409)
 	}
 
 	hashed, err := utils.HashPassword(req.Password)

@@ -18,12 +18,28 @@ func InitRedis() *redis.Client {
 		Username: "default",
 		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       0,
+
+		// ================================================================
+		// POOL — disesuaikan untuk 2 vCPU / 4 GB RAM
+		//   PoolSize     = 30  (seimbang dengan MaxOpenConns DB)
+		//   MinIdleConns = 5   (koneksi idle siap pakai)
+		//   PoolTimeout  = 10s (waktu tunggu maksimal ambil koneksi)
+		// ================================================================
+		PoolSize:     30,
+		MinIdleConns: 5,
+		PoolTimeout:  10 * time.Second,
+
+		// TIMEOUT — mencegah koneksi menggantung
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		DialTimeout:  5 * time.Second,
 	})
+
 	_, err := RDB.Ping(context.Background()).Result()
 	if err != nil {
 		panic("Failed to connect to Redis: " + err.Error())
 	}
-	log.Println("Redis Connected!")
+	log.Println("✅ Redis connected — pool: Size=30 MinIdle=5")
 	return RDB
 }
 

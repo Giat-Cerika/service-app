@@ -25,6 +25,25 @@ func NewStudentHandler(service studentservice.IStudentService) *StudentHandler {
 	return &StudentHandler{studentService: service}
 }
 
+func parseFlexibleDate(dateStr string) (time.Time, error) {
+	dateStr = strings.TrimSpace(dateStr)
+	formats := []string{
+		"02-01-2006",
+		"2006-01-02",
+		"02/01/2006",
+		"2006/01/02",
+		time.RFC3339,
+		"2006-01-02T15:04:05.000Z",
+		"2006-01-02 15:04:05",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, dateStr); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, errorresponse.NewCustomError(errorresponse.ErrBadRequest, "format tanggal lahir tidak valid", 400)
+}
+
 func (s *StudentHandler) RegisterStudent(c echo.Context) error {
 	var req studentrequest.RegisterStudentRequest
 	req.Name = c.FormValue("name")
@@ -33,7 +52,7 @@ func (s *StudentHandler) RegisterStudent(c echo.Context) error {
 	req.ConfirmPassword = c.FormValue("confirm_password")
 	req.Nisn = c.FormValue("nisn")
 	if dateStr := c.FormValue("date_of_birth"); dateStr != "" {
-		dateOfBirth, err := time.Parse("02-01-2006", dateStr)
+		dateOfBirth, err := parseFlexibleDate(dateStr)
 		if err != nil {
 			return response.Error(c, http.StatusBadRequest, "invalid date of birth format", err.Error())
 		}
@@ -65,7 +84,9 @@ func (s *StudentHandler) RegisterStudent(c echo.Context) error {
 		return response.Error(c, http.StatusInternalServerError, err.Error(), "failed to register student")
 	}
 
-	return response.Success(c, http.StatusCreated, "Student Registered Successfully", nil)
+	return response.Success(c, http.StatusCreated, "Student Registered Successfully", map[string]interface{}{
+		"message": "Student Registered Successfully",
+	})
 }
 
 func (s *StudentHandler) LoginStudent(c echo.Context) error {

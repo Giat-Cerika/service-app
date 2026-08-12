@@ -192,3 +192,65 @@ func (q *QuizSessionRepositoryImpl) FindCompleteStatusQuizSession(ctx context.Co
 	// ketemu → sudah complete
 	return true, nil
 }
+
+// SubmitQuizTransaction membungkus SELURUH proses submit quiz dalam satu transaksi:
+//  1. Simpan responses (jawaban siswa)
+//  2. Update quiz session → completed
+//  3. Simpan quiz history + question history + answer history
+//
+// Jika salah satu langkah gagal atau terjadi timeout,
+// seluruh operasi di-ROLLBACK → tidak ada data partial / double input.
+func (q *QuizSessionRepositoryImpl) SubmitQuizTransaction(
+	ctx context.Context,
+	quizSessionId uuid.UUID,
+	responses []*models.Response,
+	score int,
+	maxScore int,
+	completedAt *time.Time,
+	quizHistory *models.QuizHistory,
+	questionHistories []models.QuestionHistory,
+	answerHistories []models.AnswerHistory,
+) error {
+	return q.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
+		// ── STEP 1: Simpan responses (jawaban siswa) ──
+		if len(responses) > 0 {
+			if err := tx.CreateInBatches(responses, 50).Error; err != nil {
+				return err // rollback
+			}
+		}
+
+		// ── STEP 2: Update quiz session → completed ──
+		if err := tx.Model(&models.QuizSession{}).
+			Where("id = ?", quizSessionId).
+			Updates(map[string]interface{}{
+				"score":        score,
+				"max_score":    maxScore,
+				"completed_at": completedAt,
+				"status":       models.SessionStatusCompleted,
+			}).Error; err != nil {
+			return err // rollback
+		}
+
+		// ── STEP 3: Simpan quiz history ──
+		if err := tx.Create(quizHistory).Error; err != nil {
+			return err // rollback
+		}
+
+		// ── STEP 4: Simpan question histories (batch) ──
+		if len(questionHistories) > 0 {
+			if err := tx.CreateInBatches(&questionHistories, 50).Error; err != nil {
+				return err // rollback
+			}
+		}
+
+		// ── STEP 5: Simpan answer histories (batch) ──
+		if len(answerHistories) > 0 {
+			if err := tx.CreateInBatches(&answerHistories, 100).Error; err != nil {
+				return err // rollback
+			}
+		}
+
+		return nil // commit
+	})
+}
