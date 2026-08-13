@@ -38,9 +38,8 @@ func main() {
 		ErrorMessage: "request timeout, silakan coba lagi",
 	}))
 
-	// 3. Body Limit — maksimal 10MB per request
-	//    Mencegah upload besar yang bisa menghabiskan RAM
-	e.Use(middleware.BodyLimit("10M"))
+	// 3. Body Limit — maksimal 25MB per request (untuk menampung foto kamera HP)
+	e.Use(middleware.BodyLimit("25M"))
 
 	// 4. Gzip — kompresi response untuk hemat bandwidth
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
